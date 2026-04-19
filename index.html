@@ -678,6 +678,9 @@ let recognition = null;
 let speechSupported = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 let ttsSupported = ('speechSynthesis' in window);
 let micPermission = 'unknown';
+// Mobile/iOS detection — affects recognition settings
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 let recognitionLang = 'en-US';
 let audioCtx = null, analyser = null, micStream = null, animFrameId = null;
 let noSpeechTimer = null;
@@ -689,7 +692,7 @@ let currentPanel = 'guide';
 let echoCommands = true;
 let autoCompile = false;
 let aiMode = true; // use AI for voice commands
-let selectedApi = 'paiza'; // routes to Piston API (CORS-safe)
+let selectedApi = 'paiza';
 let lastErrors = [];
 let aiChatHistory = [];
 let ctxTargetTabId = null;
@@ -1268,10 +1271,12 @@ function isAboveNoiseGate() {
 function buildRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const r = new SR();
-  r.continuous = true;
-  r.interimResults = true;
+  // iOS does not support continuous mode — it stops recognition immediately.
+  // On iOS we set continuous:false and auto-restart after each result.
+  r.continuous = isIOS ? false : true;
+  r.interimResults = isIOS ? false : true; // interim results unstable on iOS
   r.lang = recognitionLang;
-  r.maxAlternatives = 3; // grab top 3 for better accuracy
+  r.maxAlternatives = 3;
   return r;
 }
 
@@ -1364,11 +1369,15 @@ function attachRecognitionHandlers(r) {
 
   r.onerror = (event) => {
     const errorMessages = {
-      'audio-capture': '⚠ No microphone found. Check your audio input.',
-      'not-allowed': '🚫 Microphone access denied. Allow it in browser settings.',
-      'network': '📡 Network error. Check your connection.',
-      'language-not-supported': `⚠ Language "${recognitionLang}" is not supported.`,
-      'service-not-allowed': '🚫 Speech service not allowed.',
+      'audio-capture': '⚠ No microphone found. Check your device audio settings.',
+      'not-allowed': isMobile
+        ? '🚫 Mic denied. Go to your browser Settings → Site Permissions → Microphone and allow this site.'
+        : '🚫 Microphone access denied. Allow it in browser settings.',
+      'network': '📡 Network error — speech service needs internet.',
+      'language-not-supported': `⚠ Language "${recognitionLang}" not supported on this device.`,
+      'service-not-allowed': isMobile
+        ? '🚫 Mic blocked. On iOS use Safari; on Android use Chrome. Make sure mic permission is granted.'
+        : '🚫 Speech service not allowed.',
       'bad-grammar': '⚠ Grammar error in recognition config.',
     };
     // Silently ignore non-critical transient errors
@@ -1387,7 +1396,23 @@ function attachRecognitionHandlers(r) {
 
   r.onend = () => {
     if (!isListening) { setStatus('idle'); return; }
-    // Exponential backoff restart to avoid hammering the API
+
+    // iOS: recognition always fires onend after each utterance (continuous=false).
+    // Restart quickly and silently — this is normal behaviour, not an error.
+    if (isIOS) {
+      clearTimeout(recognitionRestartTimer);
+      recognitionRestartTimer = setTimeout(() => {
+        if (!isListening) return;
+        try {
+          recognition = buildRecognition();
+          attachRecognitionHandlers(recognition);
+          recognition.start();
+        } catch(e) { stopListening(); }
+      }, 250);
+      return;
+    }
+
+    // Desktop / Android: exponential backoff restart
     if (restartAttempts >= maxRestartAttempts) {
       addLog('error', '🎙 Recognition failed to restart after multiple attempts.');
       showToast('error', 'Recognition stopped. Click mic to retry.');
@@ -1402,7 +1427,6 @@ function attachRecognitionHandlers(r) {
       try {
         r.start();
       } catch(e) {
-        // If old instance errors, create fresh recognition
         recognition = buildRecognition();
         attachRecognitionHandlers(recognition);
         try { recognition.start(); } catch(e2) { stopListening(); }
@@ -1413,9 +1437,32 @@ function attachRecognitionHandlers(r) {
 
 function toggleMic() { isListening ? stopListening() : startListening(); }
 
-function startListening() {
-  if (!speechSupported) { showToast('error', 'Speech recognition not supported. Use Chrome or Edge.'); return; }
+async function startListening() {
+  if (!speechSupported) {
+    showToast('error', isMobile
+      ? 'Use Chrome on Android or Safari on iOS 14.5+'
+      : 'Speech recognition not supported. Use Chrome or Edge.');
+    return;
+  }
   if (isListening) return;
+
+  // On mobile, we MUST request getUserMedia first to trigger the
+  // permission dialog — otherwise SpeechRecognition silently fails
+  // with a service-not-allowed or not-allowed error.
+  if (isMobile && micPermission !== 'granted') {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // release immediately; SR will reopen it
+      micPermission = 'granted';
+      document.getElementById('perm-btn')?.classList.remove('show');
+    } catch(e) {
+      micPermission = 'denied';
+      showBanner('error', '🚫 Mic denied. Allow microphone in your browser settings, then try again.');
+      document.getElementById('perm-btn')?.classList.add('show');
+      return;
+    }
+  }
+
   isListening = true;
   hideBanner();
   restartAttempts = 0;
@@ -1431,7 +1478,7 @@ function startListening() {
     return;
   }
   document.getElementById('mic-btn').classList.add('active');
-  document.getElementById('mic-state').textContent = pushToTalk ? 'Hold Space to speak' : 'Listening...';
+  document.getElementById('mic-state').textContent = pushToTalk ? 'Hold Space to speak' : (isIOS ? 'Tap mic after each phrase' : 'Listening...');
   document.getElementById('mic-state').classList.add('active');
   showToast('info', '🎙 Microphone active');
   speak(pushToTalk ? 'Push to talk mode ready' : 'Listening', false);
@@ -1713,29 +1760,15 @@ async function jdoodleCompile(code){
   return d.output?.toLowerCase().includes('error:')?{success:false,errors:[d.output]}:{success:true,output:d.output||''};
 }
 
-async function paizaCompile(code){ return pistonCompile(code); }
-
-async function pistonCompile(code){
-  const res = await fetch("https://emkc.org/api/v2/piston/execute", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      language: "cpp",
-      version: "*",
-      files: [{ name: "main.cpp", content: code }]
-    })
-  });
-  if (!res.ok) throw new Error("Piston " + res.status);
-  const d = await res.json();
-  const run = d.run || {};
-  const compile = d.compile || {};
-  if (compile.code !== undefined && compile.code !== 0) {
-    return { success: false, errors: [(compile.stderr || compile.output || "Compile failed").trim()] };
-  }
-  if (run.code !== 0 && run.stderr) {
-    return { success: false, errors: [(run.stderr || "Runtime error").trim()] };
-  }
-  return { success: true, output: (run.stdout || run.output || "(no output)").trim() };
+async function paizaCompile(code){
+  const cr=await fetch('https://api.paiza.io/runners/create?source_code='+encodeURIComponent(code)+'&language=cpp&api_key=guest',{method:'POST'});
+  if(!cr.ok) throw new Error('Paiza '+cr.status);
+  const id=(await cr.json()).id;
+  await new Promise(r=>setTimeout(r,2500));
+  const gr=await fetch('https://api.paiza.io/runners/get_details?id='+id+'&api_key=guest');
+  if(!gr.ok) throw new Error('Paiza '+gr.status);
+  const d=await gr.json();
+  return d.build_result==='failure'?{success:false,errors:[d.build_stderr||'Build failed']}:{success:true,output:d.stdout||'(no output)'};
 }
 
 // OUTPUT
@@ -2547,22 +2580,7 @@ async function compileCode() {
       // Auto-explain errors
       setTimeout(() => aiExplainErrors(lastErrors), 300);
     }
-  } catch(e) {
-    addLog('warn', `⚠ ${e.message} — falling back to simulator`);
-    showToast('warn', 'Using simulator (network unavailable)');
-    try {
-      const result = await simulateCompile(code);
-      const elapsed = ((Date.now() - compileStart) / 1000).toFixed(2);
-      outputCount++; document.getElementById('output-badge').textContent = outputCount;
-      if (result.success) {
-        addLog('success', `✓ ${tab.name} simulated in ${elapsed}s (offline mode)`);
-        result.output.split('\n').filter(l => l).forEach(l => addLog('success', l));
-      } else {
-        result.errors.forEach(e2 => { addLog('error', e2); lastErrors.push(e2); });
-        switchOutputTab('errors', document.querySelectorAll('.output-tab')[1]);
-      }
-    } catch(e2) { addLog('error', 'All compilers unavailable: ' + e2.message); }
-  }
+  } catch(e) { addLog('error', 'Compiler error: ' + e.message); showToast('error', 'Compiler unreachable'); }
   btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
   btn.disabled = false; setStatus(isListening ? 'listening' : 'idle');
 }
@@ -2628,7 +2646,7 @@ function renderSettingsPanel() {
       <div class="setting-label">Backend</div>
       <select class="sel" onchange="selectedApi=this.value">
         <option value="simulate" ${selectedApi==='simulate'?'selected':''}>Simulator</option>
-        <option value="paiza" ${selectedApi==='paiza'?'selected':''}>Piston (free, recommended)</option>
+        <option value="paiza" ${selectedApi==='paiza'?'selected':''}>Paiza.io</option>
         <option value="jdoodle" ${selectedApi==='jdoodle'?'selected':''}>JDoodle</option>
       </select>
     </div>
@@ -2780,7 +2798,7 @@ async function triggerAiAutocomplete() {
 // INIT
 document.addEventListener('DOMContentLoaded', () => {
   tryRestoreSession();
-  if (!speechSupported) { showBanner('warn', '⚠ Speech recognition not supported. Use Chrome/Edge.'); document.getElementById('perm-btn').classList.add('show'); }
+  if (!speechSupported) { showBanner('warn', isMobile ? '⚠ Speech not supported. Use Safari (iOS) or Chrome (Android).' : '⚠ Speech recognition not supported. Use Chrome/Edge.'); document.getElementById('perm-btn').classList.add('show'); }
   else { navigator.permissions?.query({name:'microphone'}).then(p => { micPermission=p.state; if(p.state==='denied'){showBanner('error','🚫 Mic denied. Allow in browser settings.');document.getElementById('perm-btn').classList.add('show');} }); }
   activeTabId = tabs[0].id;
 
