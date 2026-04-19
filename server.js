@@ -307,30 +307,72 @@ app.get('/health', (_, res) => res.json({ status: 'ok', ts: new Date() }));
 // COMPILE PROXY — avoids CORS issues from the browser
 
 // Paiza.io proxy
-// ── Helper: native HTTPS request (no node-fetch needed) ──
-function httpsRequest(url, options = {}, body = null) {
+// ── Helper: native HTTPS POST/GET ──
+const https = require('https');
+
+function httpGet(url) {
   return new Promise((resolve, reject) => {
-    const https = require('https');
-    const http  = require('http');
-    const lib   = url.startsWith('https') ? https : http;
-    const parsed = new URL(url);
-    const reqOpts = {
-      hostname: parsed.hostname,
-      port:     parsed.port || (url.startsWith('https') ? 443 : 80),
-      path:     parsed.pathname + parsed.search,
-      method:   options.method || 'GET',
-      headers:  options.headers || {},
-    };
-    const req = lib.request(reqOpts, (res) => {
+    https.get(url, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', c => data += c);
       res.on('end', () => {
-        try { resolve({ status: res.statusCode, json: () => JSON.parse(data), text: () => data }); }
-        catch(e) { resolve({ status: res.statusCode, json: () => ({}), text: () => data }); }
+        try { resolve({ ok: res.statusCode < 400, status: res.statusCode, data: JSON.parse(data) }); }
+        catch(e) { resolve({ ok: false, status: res.statusCode, data: {} }); }
+      });
+    }).on('error', reject);
+  });
+}
+
+function httpPost(url, payload) {
+  return new Promise((resolve, reject) => {
+    const body   = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const parsed = new URL(url);
+    const opts   = {
+      hostname: parsed.hostname,
+      path:     parsed.pathname + parsed.search,
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const req = https.request(opts, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try { resolve({ ok: res.statusCode < 400, status: res.statusCode, data: JSON.parse(data) }); }
+        catch(e) { resolve({ ok: false, status: res.statusCode, data: {}, raw: data }); }
       });
     });
     req.on('error', reject);
-    if (body) req.write(body);
+    req.write(body);
+    req.end();
+  });
+}
+
+function httpPostJson(url, payload) {
+  return new Promise((resolve, reject) => {
+    const body   = JSON.stringify(payload);
+    const parsed = new URL(url);
+    const opts   = {
+      hostname: parsed.hostname,
+      path:     parsed.pathname + parsed.search,
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const req = https.request(opts, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try { resolve({ ok: res.statusCode < 400, status: res.statusCode, data: JSON.parse(data) }); }
+        catch(e) { resolve({ ok: false, status: res.statusCode, data: {}, raw: data }); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
     req.end();
   });
 }
@@ -340,29 +382,38 @@ app.post('/compile/paiza', async (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ success: false, error: 'No code' });
   try {
-    const cr = await httpsRequest(
-      'https://api.paiza.io/runners/create?source_code=' + encodeURIComponent(code) + '&language=cpp&api_key=guest',
-      { method: 'POST' }
-    );
-    if (cr.status !== 200) return res.json({ success: false, error: 'Paiza unavailable (' + cr.status + ')' });
-    const { id } = cr.json();
-    if (!id) return res.json({ success: false, error: 'Paiza: no run ID returned' });
+    // Paiza create — POST with form-encoded body
+    const createUrl = 'https://api.paiza.io/runners/create';
+    const formBody  = 'source_code=' + encodeURIComponent(code) + '&language=cpp&api_key=guest';
+    const cr = await httpPost(createUrl, formBody);
 
-    await new Promise(r => setTimeout(r, 4000));
+    console.log('Paiza create status:', cr.status, JSON.stringify(cr.data));
 
-    const gr = await httpsRequest('https://api.paiza.io/runners/get_details?id=' + id + '&api_key=guest');
-    const d  = gr.json();
+    if (!cr.ok || !cr.data.id)
+      return res.json({ success: false, error: 'Paiza create failed (' + cr.status + '): ' + JSON.stringify(cr.data) });
 
-    if (d.build_result === 'failure')
-      return res.json({ success: false, error: d.build_stderr || d.build_stdout || 'Compile error' });
-    if (d.result === 'timeout')
-      return res.json({ success: false, error: 'Execution timed out' });
+    const runId = cr.data.id;
 
-    const output = [d.stdout, d.stderr].filter(Boolean).join('\n') || '(no output)';
+    // Poll for result (up to 10s)
+    let result = null;
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const gr = await httpGet('https://api.paiza.io/runners/get_details?id=' + runId + '&api_key=guest');
+      console.log('Paiza poll', i, gr.status, gr.data?.status);
+      if (gr.data?.status === 'completed' || gr.data?.status === 'timeout') { result = gr.data; break; }
+      result = gr.data;
+    }
+
+    if (!result) return res.json({ success: false, error: 'Paiza timed out' });
+    if (result.build_result === 'failure')
+      return res.json({ success: false, error: result.build_stderr || result.build_stdout || 'Compile error' });
+
+    const output = [result.stdout, result.stderr].filter(Boolean).join('\n').trim() || '(no output)';
     res.json({ success: true, output });
+
   } catch (err) {
     console.error('Paiza error:', err.message);
-    res.json({ success: false, error: 'Paiza unreachable: ' + err.message });
+    res.json({ success: false, error: 'Paiza error: ' + err.message });
   }
 });
 
@@ -375,18 +426,17 @@ app.post('/compile/jdoodle', async (req, res) => {
   if (!clientId || !clientSecret)
     return res.json({ success: false, error: 'JDoodle credentials not set in Railway Variables' });
   try {
-    const body = JSON.stringify({ clientId, clientSecret, script: code, language: 'cpp17', versionIndex: '0' });
-    const r = await httpsRequest('https://api.jdoodle.com/v1/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-    }, body);
-    const d = r.json();
+    const r = await httpPostJson('https://api.jdoodle.com/v1/execute', {
+      clientId, clientSecret, script: code, language: 'cpp17', versionIndex: '0'
+    });
+    const d = r.data;
     if (d.error)  return res.json({ success: false, error: d.error });
-    if (d.output?.toLowerCase().includes('error:')) return res.json({ success: false, error: d.output });
+    if ((d.output || '').toLowerCase().includes('error:'))
+      return res.json({ success: false, error: d.output });
     res.json({ success: true, output: d.output || '(no output)' });
   } catch (err) {
     console.error('JDoodle error:', err.message);
-    res.json({ success: false, error: 'JDoodle unreachable: ' + err.message });
+    res.json({ success: false, error: 'JDoodle error: ' + err.message });
   }
 });
 
