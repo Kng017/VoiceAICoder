@@ -9,7 +9,30 @@ const app  = express();
 const PORT = process.env.PORT || 4000;
 
 //  MIDDLEWARE
-app.use(cors({ origin: '*', credentials: true }));
+const ALLOWED_ORIGINS = [
+  'https://voiceaicoder.netlify.app',
+  'https://voicecoder.netlify.app',
+  'http://localhost:8080',
+  'http://localhost:3000',
+  'http://localhost:4000',
+  // add any other frontend URLs here
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Handle OPTIONS preflight for all routes
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.static(__dirname));
 
