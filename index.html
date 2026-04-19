@@ -334,141 +334,6 @@
   .file-row-date{font-size:10px;color:var(--text3);flex-shrink:0;margin-left:8px}
   .share-box{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px;font-family:var(--mono);font-size:10px;color:var(--accent3);cursor:pointer;margin-top:8px;word-break:break-all;transition:background 0.15s}
   .share-box:hover{background:var(--bg4)}
-
-  /* ════════════════════════════════════
-     MOBILE RESPONSIVE  (≤768px)
-     ════════════════════════════════════ */
-  @media (max-width: 768px) {
-
-    /* ── Topbar ── */
-    .topbar { padding: 0 10px; gap: 8px; height: 48px; }
-    .logo-text { font-size: 13px; }
-    .ai-badge { display: none; }
-    .status-label { display: none; }
-    .sep { display: none; }
-    .btn { padding: 5px 8px; font-size: 11px; }
-    .nav-pills { display: none !important; }
-
-    /* ── Full-screen single column ── */
-    .app-layout {
-      display: flex;
-      flex-direction: column;
-      height: calc(100dvh - 48px); /* dvh = dynamic viewport height, fixes mobile browser chrome */
-      overflow: hidden;
-    }
-
-    /* ── Editor fills remaining space ── */
-    .editor-area {
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ── Sidebar: hidden by default, full-screen overlay when open ── */
-    .sidebar {
-      display: none;
-      position: fixed;
-      top: 48px;
-      left: 0;
-      right: 0;
-      bottom: 56px;
-      z-index: 200;
-      overflow-y: auto;
-      width: 100%;
-    }
-    .sidebar.mobile-open { display: flex; flex-direction: column; }
-
-    /* ── Right panel: hidden by default, bottom sheet when open ── */
-    .right-panel {
-      display: none;
-      position: fixed;
-      bottom: 56px;
-      left: 0;
-      right: 0;
-      height: 60vh;
-      z-index: 200;
-      border-top: 2px solid var(--border2);
-      border-radius: 14px 14px 0 0;
-      overflow: hidden;
-    }
-    .right-panel.mobile-open { display: flex; flex-direction: column; }
-
-    /* ── Output pane smaller on mobile ── */
-    .output-pane { height: 120px; flex-shrink: 0; }
-
-    /* ── Editor toolbar wraps on mobile ── */
-    .editor-toolbar { height: auto; min-height: 44px; flex-wrap: wrap; padding: 4px 6px; gap: 3px; }
-    .tabs-scroll-area { order: 1; width: 100%; max-width: 100%; }
-    .toolbar-actions { order: 2; width: 100%; justify-content: flex-end; flex-wrap: wrap; }
-    .tab-add-btn { order: 0; }
-
-    /* ── Bottom navigation bar ── */
-    .mobile-nav {
-      display: flex !important;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 56px;
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
-      z-index: 300;
-      align-items: center;
-      justify-content: space-around;
-      padding-bottom: env(safe-area-inset-bottom); /* iPhone notch support */
-    }
-    .mobile-nav-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      padding: 6px 16px;
-      cursor: pointer;
-      color: var(--text3);
-      font-size: 9px;
-      font-weight: 500;
-      font-family: var(--sans);
-      border: none;
-      background: none;
-      transition: color 0.15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .mobile-nav-btn.active { color: var(--accent2); }
-    .mobile-nav-btn svg { width: 20px; height: 20px; }
-
-    /* ── Push app content above bottom nav ── */
-    #app-page { padding-bottom: 56px; }
-
-    /* ── Dark overlay when panel is open ── */
-    .mobile-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 190;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .mobile-overlay.show { display: block; }
-
-    /* ── Auth modal full width ── */
-    .auth-box { width: 94vw; padding: 20px 16px; }
-    .modal { width: 94vw; }
-
-    /* ── Landing page ── */
-    .landing h1 { font-size: 26px; }
-    .landing p { font-size: 13px; }
-    .feature-grid { grid-template-columns: 1fr; }
-    .landing-btns { flex-direction: column; align-items: stretch; width: 100%; max-width: 280px; }
-
-    /* ── Settings drawer full width on mobile ── */
-    #settings-drawer { width: 100% !important; }
-
-    /* ── Monaco editor fills container ── */
-    #monaco-container { width: 100%; height: 100%; }
-  }
-
 </style>
 </head>
 <body>
@@ -804,36 +669,12 @@
 
 <div class="toast-wrap" id="toast-wrap"></div>
 
-<!-- MOBILE OVERLAY -->
-<div class="mobile-overlay" id="mobile-overlay" onclick="closeMobilePanels()"></div>
-
-<!-- MOBILE BOTTOM NAV (hidden on desktop via CSS, shown on mobile) -->
-<nav class="mobile-nav" id="mobile-nav" style="display:none">
-  <button class="mobile-nav-btn active" id="mnav-editor" onclick="mobileShowEditor()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-    Editor
-  </button>
-  <button class="mobile-nav-btn" id="mnav-mic" onclick="mobileShowMic()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-    Voice
-  </button>
-  <button class="mobile-nav-btn" id="mnav-ai" onclick="mobileShowAI()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    AI
-  </button>
-  <button class="mobile-nav-btn" id="mnav-run" onclick="compileCode()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-    Run
-  </button>
-</nav>
-
 <script>
 // STATE
 let isDark = true;
 let currentUser = null;
 let isListening = false;
 let recognition = null;
-const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 let speechSupported = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 let ttsSupported = ('speechSynthesis' in window);
 let micPermission = 'unknown';
@@ -1426,12 +1267,11 @@ function isAboveNoiseGate() {
 //Recognition factory
 function buildRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return null;
   const r = new SR();
-  r.continuous = !isMobileDevice;
+  r.continuous = true;
   r.interimResults = true;
   r.lang = recognitionLang;
-  r.maxAlternatives = 3;
+  r.maxAlternatives = 3; // grab top 3 for better accuracy
   return r;
 }
 
@@ -1554,18 +1394,18 @@ function attachRecognitionHandlers(r) {
       stopListening();
       return;
     }
-    const delay = isMobileDevice ? 300 : Math.min(restartDelay * Math.pow(1.5, restartAttempts), 3000);
+    const delay = Math.min(restartDelay * Math.pow(1.5, restartAttempts), 3000);
     restartAttempts++;
     clearTimeout(recognitionRestartTimer);
     recognitionRestartTimer = setTimeout(() => {
       if (!isListening) return;
       try {
-        if (isMobileDevice) { recognition = buildRecognition(); attachRecognitionHandlers(recognition); }
-        recognition.start();
+        r.start();
       } catch(e) {
+        // If old instance errors, create fresh recognition
         recognition = buildRecognition();
-        if (recognition) { attachRecognitionHandlers(recognition); try { recognition.start(); } catch(e2) { stopListening(); } }
-        else stopListening();
+        attachRecognitionHandlers(recognition);
+        try { recognition.start(); } catch(e2) { stopListening(); }
       }
     }, delay);
   };
@@ -1573,29 +1413,15 @@ function attachRecognitionHandlers(r) {
 
 function toggleMic() { isListening ? stopListening() : startListening(); }
 
-async function startListening() {
-  if (!speechSupported) { showToast('error', 'Use Chrome for voice support.'); return; }
+function startListening() {
+  if (!speechSupported) { showToast('error', 'Speech recognition not supported. Use Chrome or Edge.'); return; }
   if (isListening) return;
-  if (isMobileDevice || micPermission === 'unknown') {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micPermission = 'granted';
-      stream.getTracks().forEach(t => t.stop());
-      document.getElementById('perm-btn')?.classList.remove('show');
-    } catch(e) {
-      micPermission = 'denied';
-      showBanner('error', '🚫 Mic blocked. Tap 🔒 in address bar → allow microphone.');
-      document.getElementById('perm-btn')?.classList.add('show');
-      return;
-    }
-  }
   isListening = true;
   hideBanner();
   restartAttempts = 0;
-  restartDelay = 200;
+  restartDelay = 150;
   volumeHistory = [];
   recognition = buildRecognition();
-  if (!recognition) { showToast('error', 'Speech API unavailable'); isListening = false; return; }
   attachRecognitionHandlers(recognition);
   try {
     recognition.start();
@@ -1605,10 +1431,10 @@ async function startListening() {
     return;
   }
   document.getElementById('mic-btn').classList.add('active');
-  document.getElementById('mic-state').textContent = isMobileDevice ? 'Tap mic to stop' : (pushToTalk ? 'Hold Space to speak' : 'Listening...');
+  document.getElementById('mic-state').textContent = pushToTalk ? 'Hold Space to speak' : 'Listening...';
   document.getElementById('mic-state').classList.add('active');
   showToast('info', '🎙 Microphone active');
-  if (!isMobileDevice) speak(pushToTalk ? 'Push to talk mode ready' : 'Listening', false);
+  speak(pushToTalk ? 'Push to talk mode ready' : 'Listening', false);
 }
 
 function stopListening() {
@@ -1664,17 +1490,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function requestMicPermission() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    micPermission = 'granted';
-    stream.getTracks().forEach(t => t.stop());
-    document.getElementById('perm-btn').classList.remove('show');
-    hideBanner();
-    showToast('success', '✅ Mic allowed! Now tap the mic button.');
-  } catch(e) {
-    micPermission = 'denied';
-    showBanner('error', '🚫 Mic blocked. Tap 🔒 in address bar → Site settings → Allow Microphone.');
-  }
+  try { await navigator.mediaDevices.getUserMedia({audio:true}); micPermission='granted'; document.getElementById('perm-btn').classList.remove('show'); showToast('success','Mic permission granted'); } catch(e){ micPermission='denied'; showBanner('error','🚫 Mic permission denied.'); }
 }
 
 // AUDIO CONTEXT / WAVEFORM
@@ -1898,14 +1714,16 @@ async function jdoodleCompile(code){
 }
 
 async function paizaCompile(code){
-  const cr=await fetch('https://api.paiza.io/runners/create?source_code='+encodeURIComponent(code)+'&language=cpp&api_key=guest',{method:'POST'});
-  if(!cr.ok) throw new Error('Paiza '+cr.status);
-  const id=(await cr.json()).id;
-  await new Promise(r=>setTimeout(r,2500));
-  const gr=await fetch('https://api.paiza.io/runners/get_details?id='+id+'&api_key=guest');
-  if(!gr.ok) throw new Error('Paiza '+gr.status);
-  const d=await gr.json();
-  return d.build_result==='failure'?{success:false,errors:[d.build_stderr||'Build failed']}:{success:true,output:d.stdout||'(no output)'};
+  // Uses Piston API via backend proxy — free, no key needed
+  const res=await fetch(`${API_BASE}/compile/piston`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({code})
+  });
+  if(!res.ok) throw new Error('Compiler HTTP '+res.status);
+  const d=await res.json();
+  if(!d.success) return{success:false,errors:[d.error||'Compilation failed']};
+  return{success:true,output:d.output||''};
 }
 
 // OUTPUT
@@ -1981,7 +1799,7 @@ function showEditor(){
   document.getElementById('landing-page').style.display='none';
   document.getElementById('app-page').style.display='block';
   document.getElementById('nav-pills').style.display='flex';
-  requestAnimationFrame(()=>{ updateLineNumbers(); drawIdleWaveform(); renderTabs(); renderPanel(currentPanel); initMobileNav(); });
+  requestAnimationFrame(()=>{ updateLineNumbers(); drawIdleWaveform(); renderTabs(); renderPanel(currentPanel); });
 }
 function guardedShowEditor(){
   if(currentUser) showEditor();
@@ -2783,7 +2601,7 @@ function renderSettingsPanel() {
       <div class="setting-label">Backend</div>
       <select class="sel" onchange="selectedApi=this.value">
         <option value="simulate" ${selectedApi==='simulate'?'selected':''}>Simulator</option>
-        <option value="paiza" ${selectedApi==='paiza'?'selected':''}>Paiza.io</option>
+        <option value="paiza" ${selectedApi==='paiza'?'selected':''}>⚡ Piston (Real C++)</option>
         <option value="jdoodle" ${selectedApi==='jdoodle'?'selected':''}>JDoodle</option>
       </select>
     </div>
@@ -2950,51 +2768,6 @@ document.addEventListener('DOMContentLoaded', () => {
   style.textContent = `.autocomplete-inline-ghost { opacity: 0.4; color: var(--accent3); font-style: italic; }`;
   document.head.appendChild(style);
 });
-
-// ════════════════════════════════
-// MOBILE NAVIGATION
-// ════════════════════════════════
-function initMobileNav() {
-  const nav = document.getElementById('mobile-nav');
-  if (!nav) return;
-  nav.style.display = isMobileDevice ? 'flex' : 'none';
-}
-
-function closeMobilePanels() {
-  document.querySelector('.sidebar')?.classList.remove('mobile-open');
-  document.querySelector('.right-panel')?.classList.remove('mobile-open');
-  document.getElementById('mobile-overlay')?.classList.remove('show');
-  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('mnav-editor')?.classList.add('active');
-}
-
-function mobileShowEditor() {
-  closeMobilePanels();
-}
-
-function mobileShowMic() {
-  const sidebar = document.querySelector('.sidebar');
-  const isOpen = sidebar?.classList.contains('mobile-open');
-  closeMobilePanels();
-  if (!isOpen) {
-    sidebar?.classList.add('mobile-open');
-    document.getElementById('mobile-overlay')?.classList.add('show');
-    document.getElementById('mnav-mic')?.classList.add('active');
-  }
-}
-
-function mobileShowAI() {
-  const panel = document.querySelector('.right-panel');
-  const isOpen = panel?.classList.contains('mobile-open');
-  closeMobilePanels();
-  if (!isOpen) {
-    panel?.classList.add('mobile-open');
-    document.getElementById('mobile-overlay')?.classList.add('show');
-    document.getElementById('mnav-ai')?.classList.add('active');
-    renderPanel(currentPanel);
-  }
-}
-
 </script>
 </body>
 </html>

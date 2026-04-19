@@ -377,45 +377,50 @@ function httpPostJson(url, payload) {
   });
 }
 
-// Paiza.io proxy
-app.post('/compile/paiza', async (req, res) => {
-  const { code } = req.body;
-  if (!code) return res.status(400).json({ success: false, error: 'No code' });
+// Piston API proxy (free, no key, reliable)
+// Handles both /compile/paiza (legacy) and /compile/piston
+async function pistonCompile(code, res) {
   try {
-    // Paiza create — POST with form-encoded body
-    const createUrl = 'https://api.paiza.io/runners/create';
-    const formBody  = 'source_code=' + encodeURIComponent(code) + '&language=cpp&api_key=guest';
-    const cr = await httpPost(createUrl, formBody);
+    const payload = JSON.stringify({
+      language: 'cpp',
+      version: '*',
+      files: [{ name: 'main.cpp', content: code }],
+      stdin: '',
+      args: [],
+      compile_timeout: 10000,
+      run_timeout: 5000,
+    });
 
-    console.log('Paiza create status:', cr.status, JSON.stringify(cr.data));
+    const result = await httpPostJson('https://emkc.org/api/v2/piston/execute', JSON.parse(payload));
 
-    if (!cr.ok || !cr.data.id)
-      return res.json({ success: false, error: 'Paiza create failed (' + cr.status + '): ' + JSON.stringify(cr.data) });
+    if (!result.ok)
+      return res.json({ success: false, error: 'Compiler service unavailable (' + result.status + ')' });
 
-    const runId = cr.data.id;
+    const d = result.data;
+    console.log('Piston result:', JSON.stringify(d).substring(0, 200));
 
-    // Poll for result (up to 10s)
-    let result = null;
-    for (let i = 0; i < 5; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      const gr = await httpGet('https://api.paiza.io/runners/get_details?id=' + runId + '&api_key=guest');
-      console.log('Paiza poll', i, gr.status, gr.data?.status);
-      if (gr.data?.status === 'completed' || gr.data?.status === 'timeout') { result = gr.data; break; }
-      result = gr.data;
+    // Compile error
+    if (d.compile && d.compile.code !== 0) {
+      const errMsg = d.compile.stderr || d.compile.output || 'Compile error';
+      return res.json({ success: false, error: errMsg });
     }
 
-    if (!result) return res.json({ success: false, error: 'Paiza timed out' });
-    if (result.build_result === 'failure')
-      return res.json({ success: false, error: result.build_stderr || result.build_stdout || 'Compile error' });
+    // Runtime error
+    if (d.run && d.run.code !== 0 && d.run.stderr) {
+      return res.json({ success: false, error: d.run.stderr });
+    }
 
-    const output = [result.stdout, result.stderr].filter(Boolean).join('\n').trim() || '(no output)';
+    const output = (d.run?.output || d.run?.stdout || '').trim() || '(no output)';
     res.json({ success: true, output });
 
   } catch (err) {
-    console.error('Paiza error:', err.message);
-    res.json({ success: false, error: 'Paiza error: ' + err.message });
+    console.error('Piston error:', err.message);
+    res.json({ success: false, error: 'Compiler error: ' + err.message });
   }
-});
+}
+
+app.post('/compile/paiza',  (req, res) => pistonCompile(req.body?.code, res));
+app.post('/compile/piston', (req, res) => pistonCompile(req.body?.code, res));
 
 // JDoodle proxy
 app.post('/compile/jdoodle', async (req, res) => {
