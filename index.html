@@ -334,133 +334,12 @@
   .file-row-date{font-size:10px;color:var(--text3);flex-shrink:0;margin-left:8px}
   .share-box{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px;font-family:var(--mono);font-size:10px;color:var(--accent3);cursor:pointer;margin-top:8px;word-break:break-all;transition:background 0.15s}
   .share-box:hover{background:var(--bg4)}
-
-  /* ═══════════════════════════════════════
-     MOBILE RESPONSIVE — hamburger toggles
-  ═══════════════════════════════════════ */
-  .mob-icon-btn{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--bg4);border:1px solid var(--border2);color:var(--text2);cursor:pointer;flex-shrink:0}
-  .mob-icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
-  .mob-icon-btn:hover{color:var(--text);border-color:var(--accent)}
-
-  /* overlay for drawer dismiss */
-  .mob-overlay{display:none;position:fixed;inset:0;z-index:149;background:rgba(0,0,0,0.5)}
-  .mob-overlay.show{display:block}
-
-  @media (max-width: 768px) {
-    /* ── TOPBAR ── */
-    .topbar{padding:0 10px;gap:8px;height:52px;overflow:hidden}
-    .logo-text{font-size:14px}
-    .ai-badge{display:none}
-    .nav-pills{display:none !important}
-    .status-label{display:none}
-    .status-dot{flex-shrink:0}
-    .sep{display:none}
-    /* hide sign in/up text labels on very small screens, keep icon-only */
-    #auth-area .btn{font-size:11px;padding:4px 8px}
-    .btn-ghost[onclick*="toggleTheme"]{display:none}
-    .mob-icon-btn{display:flex}
-
-    /* ── 3-COL → SINGLE COL ── */
-    .app-layout{
-      display:flex;
-      flex-direction:column;
-      height:calc(100vh - 52px);
-      overflow:hidden;
-      position:relative;
-    }
-
-    /* ── SIDEBAR becomes a left drawer ── */
-    .sidebar{
-      position:fixed;
-      top:52px;
-      left:0;
-      width:80vw;
-      max-width:300px;
-      height:calc(100vh - 52px);
-      z-index:150;
-      transform:translateX(-100%);
-      transition:transform 0.25s ease;
-      border-right:1px solid var(--border2);
-      box-shadow:4px 0 24px rgba(0,0,0,0.4);
-    }
-    .sidebar.mob-open{transform:translateX(0)}
-
-    /* ── EDITOR fills all space ── */
-    .editor-area{
-      flex:1;
-      min-height:0;
-      width:100%;
-      overflow:hidden;
-    }
-
-    /* ── RIGHT PANEL becomes a right drawer ── */
-    .right-panel{
-      position:fixed;
-      top:52px;
-      right:0;
-      width:85vw;
-      max-width:320px;
-      height:calc(100vh - 52px);
-      z-index:150;
-      transform:translateX(100%);
-      transition:transform 0.25s ease;
-      border-left:1px solid var(--border2);
-      box-shadow:-4px 0 24px rgba(0,0,0,0.4);
-    }
-    .right-panel.mob-open{transform:translateX(0)}
-
-    /* ── EDITOR TOOLBAR ── */
-    .editor-toolbar{padding:0 6px;gap:2px;overflow-x:auto}
-    .toolbar-actions{gap:2px}
-    .toolbar-actions .btn-sm{padding:3px 7px;font-size:10px}
-    /* hide labels inside toolbar buttons on mobile */
-    .toolbar-actions .btn-sm span.btn-label{display:none}
-
-    /* ── OUTPUT PANE height reduction ── */
-    .output-pane{height:140px}
-
-    /* ── MODALS ── */
-    .modal{width:calc(100vw - 24px);max-width:100%;padding:16px}
-    .modal-title{font-size:15px}
-
-    /* ── AUTH BOX ── */
-    .auth-box{width:calc(100vw - 24px);max-width:100%;padding:20px 16px}
-
-    /* ── LANDING PAGE ── */
-    .landing{padding:24px 16px;min-height:calc(100vh - 52px)}
-    .landing h1{font-size:28px}
-    .landing p{font-size:14px;margin-bottom:20px}
-    .landing-btns{gap:8px;margin-bottom:28px}
-    .feature-grid{grid-template-columns:1fr;gap:10px;max-width:100%}
-
-    /* ── SETTINGS DRAWER width ── */
-    #settings-drawer{width:calc(100vw - 40px);max-width:320px}
-
-    /* ── TOAST position ── */
-    .toast-wrap{bottom:12px;right:10px;left:10px;align-items:flex-end}
-    .toast{max-width:100%;width:100%}
-  }
-
-  @media (max-width: 480px) {
-    .topbar{padding:0 8px;gap:6px}
-    .logo-text{display:none}
-    #auth-area .btn:first-child{display:none} /* hide Sign In, keep Sign Up */
-    .landing h1{font-size:22px}
-    .landing p{font-size:13px}
-  }
 </style>
 </head>
 <body>
 
-<!-- MOBILE OVERLAY -->
-<div class="mob-overlay" id="mob-overlay" onclick="closeMobDrawers()"></div>
-
 <!-- TOPBAR -->
 <div class="topbar" id="topbar">
-  <!-- Mobile: sidebar toggle -->
-  <button class="mob-icon-btn" id="mob-sidebar-btn" onclick="toggleMobSidebar()" title="Microphone / Voice">
-    <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-  </button>
   <div class="logo" onclick="guardedShowEditor()">
     <div class="logo-icon">
       <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -498,10 +377,6 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
     <button class="btn btn-ghost" onclick="toggleTheme()" id="theme-btn" style="padding:5px 10px;font-size:11px">☀ Light</button>
-    <!-- Mobile: AI / right panel toggle -->
-    <button class="mob-icon-btn" id="mob-panel-btn" onclick="toggleMobPanel()" title="AI Panel">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    </button>
   </div>
 </div>
 
@@ -567,7 +442,7 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sidebar-section mic-wrap">
-        <button class="perm-btn" id="perm-btn" onclick="requestMicPermission()">Allow Microphone</button>
+        <button class="perm-btn" id="perm-btn" onclick="requestMicPermission()">🎙 Allow Microphone</button>
         <div class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Toggle microphone (Ctrl+M)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
@@ -797,6 +672,7 @@
 <script>
 // STATE
 let isDark = true;
+const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 let currentUser = null;
 let isListening = false;
 let recognition = null;
@@ -1392,11 +1268,13 @@ function isAboveNoiseGate() {
 //Recognition factory
 function buildRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
   const r = new SR();
-  r.continuous = true;
+  // Mobile Chrome doesn't support continuous mode reliably — use single-shot with auto-restart
+  r.continuous = !isMobileDevice;
   r.interimResults = true;
   r.lang = recognitionLang;
-  r.maxAlternatives = 3; // grab top 3 for better accuracy
+  r.maxAlternatives = 3;
   return r;
 }
 
@@ -1512,25 +1390,38 @@ function attachRecognitionHandlers(r) {
 
   r.onend = () => {
     if (!isListening) { setStatus('idle'); return; }
-    // Exponential backoff restart to avoid hammering the API
+
     if (restartAttempts >= maxRestartAttempts) {
-      addLog('error', '🎙 Recognition failed to restart after multiple attempts.');
-      showToast('error', 'Recognition stopped. Click mic to retry.');
+      addLog('error', '🎙 Recognition stopped after multiple attempts.');
+      showToast('error', 'Recognition stopped. Tap mic to retry.');
       stopListening();
       return;
     }
-    const delay = Math.min(restartDelay * Math.pow(1.5, restartAttempts), 3000);
+
+    // Mobile needs a short fixed delay; desktop uses exponential backoff
+    const delay = isMobileDevice
+      ? 300
+      : Math.min(restartDelay * Math.pow(1.5, restartAttempts), 3000);
     restartAttempts++;
+
     clearTimeout(recognitionRestartTimer);
     recognitionRestartTimer = setTimeout(() => {
       if (!isListening) return;
       try {
-        r.start();
+        // Always create a fresh instance on mobile — reusing the old one often fails
+        if (isMobileDevice) {
+          recognition = buildRecognition();
+          attachRecognitionHandlers(recognition);
+        }
+        recognition.start();
       } catch(e) {
-        // If old instance errors, create fresh recognition
         recognition = buildRecognition();
-        attachRecognitionHandlers(recognition);
-        try { recognition.start(); } catch(e2) { stopListening(); }
+        if (recognition) {
+          attachRecognitionHandlers(recognition);
+          try { recognition.start(); } catch(e2) { stopListening(); }
+        } else {
+          stopListening();
+        }
       }
     }, delay);
   };
@@ -1538,16 +1429,45 @@ function attachRecognitionHandlers(r) {
 
 function toggleMic() { isListening ? stopListening() : startListening(); }
 
-function startListening() {
-  if (!speechSupported) { showToast('error', 'Speech recognition not supported. Use Chrome or Edge.'); return; }
+async function startListening() {
+  if (!speechSupported) {
+    showToast('error', 'Speech recognition not supported. Use Chrome.');
+    showBanner('warn', '⚠ Use Google Chrome on Android for voice support.');
+    return;
+  }
   if (isListening) return;
+
+  // Mobile Chrome REQUIRES getUserMedia permission before SpeechRecognition works
+  if (isMobileDevice || micPermission === 'unknown') {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micPermission = 'granted';
+      // Stop the stream immediately — we just needed the permission grant
+      stream.getTracks().forEach(t => t.stop());
+      document.getElementById('perm-btn')?.classList.remove('show');
+    } catch (e) {
+      micPermission = 'denied';
+      showBanner('error', '🚫 Microphone blocked. Tap the 🔒 icon in your browser address bar and allow microphone.');
+      document.getElementById('perm-btn')?.classList.add('show');
+      showToast('error', 'Mic permission denied');
+      return;
+    }
+  }
+
   isListening = true;
   hideBanner();
   restartAttempts = 0;
-  restartDelay = 150;
+  restartDelay = 200;
   volumeHistory = [];
+
   recognition = buildRecognition();
+  if (!recognition) {
+    showToast('error', 'Speech API unavailable');
+    isListening = false;
+    return;
+  }
   attachRecognitionHandlers(recognition);
+
   try {
     recognition.start();
   } catch(e) {
@@ -1555,11 +1475,12 @@ function startListening() {
     isListening = false;
     return;
   }
+
   document.getElementById('mic-btn').classList.add('active');
-  document.getElementById('mic-state').textContent = pushToTalk ? 'Hold Space to speak' : 'Listening...';
+  document.getElementById('mic-state').textContent = isMobileDevice ? 'Tap mic to stop' : (pushToTalk ? 'Hold Space to speak' : 'Listening...');
   document.getElementById('mic-state').classList.add('active');
   showToast('info', '🎙 Microphone active');
-  speak(pushToTalk ? 'Push to talk mode ready' : 'Listening', false);
+  if (!isMobileDevice) speak(pushToTalk ? 'Push to talk mode ready' : 'Listening', false);
 }
 
 function stopListening() {
@@ -1615,7 +1536,18 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function requestMicPermission() {
-  try { await navigator.mediaDevices.getUserMedia({audio:true}); micPermission='granted'; document.getElementById('perm-btn').classList.remove('show'); showToast('success','Mic permission granted'); } catch(e){ micPermission='denied'; showBanner('error','🚫 Mic permission denied.'); }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micPermission = 'granted';
+    stream.getTracks().forEach(t => t.stop()); // release immediately
+    document.getElementById('perm-btn').classList.remove('show');
+    showToast('success', '✅ Mic permission granted! Tap the mic button to start.');
+    hideBanner();
+  } catch(e) {
+    micPermission = 'denied';
+    showBanner('error', '🚫 Mic blocked. In Chrome: tap 🔒 in address bar → Site settings → Allow Microphone.');
+    showToast('error', 'Permission denied');
+  }
 }
 
 // AUDIO CONTEXT / WAVEFORM
@@ -2876,8 +2808,26 @@ async function triggerAiAutocomplete() {
 // INIT
 document.addEventListener('DOMContentLoaded', () => {
   tryRestoreSession();
-  if (!speechSupported) { showBanner('warn', '⚠ Speech recognition not supported. Use Chrome/Edge.'); document.getElementById('perm-btn').classList.add('show'); }
-  else { navigator.permissions?.query({name:'microphone'}).then(p => { micPermission=p.state; if(p.state==='denied'){showBanner('error','🚫 Mic denied. Allow in browser settings.');document.getElementById('perm-btn').classList.add('show');} }); }
+  if (!speechSupported) {
+    showBanner('warn', '⚠ Speech recognition requires Chrome on Android or Chrome/Edge on desktop.');
+    document.getElementById('perm-btn').classList.add('show');
+  } else {
+    // On mobile, show Allow Microphone button proactively
+    if (isMobileDevice) {
+      document.getElementById('perm-btn').classList.add('show');
+    }
+    navigator.permissions?.query({name:'microphone'}).then(p => {
+      micPermission = p.state;
+      if (p.state === 'granted') document.getElementById('perm-btn').classList.remove('show');
+      if (p.state === 'denied') {
+        showBanner('error', '🚫 Mic blocked. Tap 🔒 in address bar → allow microphone.');
+        document.getElementById('perm-btn').classList.add('show');
+      }
+    }).catch(() => {
+      // permissions API not available (some mobile browsers) — show button anyway
+      if (isMobileDevice) document.getElementById('perm-btn').classList.add('show');
+    });
+  }
   activeTabId = tabs[0].id;
 
   // Init Monaco after page loads
@@ -2891,37 +2841,6 @@ document.addEventListener('DOMContentLoaded', () => {
   style.textContent = `.autocomplete-inline-ghost { opacity: 0.4; color: var(--accent3); font-style: italic; }`;
   document.head.appendChild(style);
 });
-
-// ═══════════════════════════════════════════
-// MOBILE DRAWER HELPERS
-// ═══════════════════════════════════════════
-function closeMobDrawers() {
-  document.querySelector('.sidebar')?.classList.remove('mob-open');
-  document.querySelector('.right-panel')?.classList.remove('mob-open');
-  document.getElementById('mob-overlay')?.classList.remove('show');
-}
-function toggleMobSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  const panel   = document.querySelector('.right-panel');
-  const overlay = document.getElementById('mob-overlay');
-  if (!sidebar) return;
-  const opening = !sidebar.classList.contains('mob-open');
-  closeMobDrawers();
-  if (opening) { sidebar.classList.add('mob-open'); overlay?.classList.add('show'); }
-}
-function toggleMobPanel() {
-  const panel   = document.querySelector('.right-panel');
-  const overlay = document.getElementById('mob-overlay');
-  if (!panel) return;
-  const opening = !panel.classList.contains('mob-open');
-  closeMobDrawers();
-  if (opening) { panel.classList.add('mob-open'); overlay?.classList.add('show'); }
-}
-// Close drawers when switching to landing page
-const _origShowLanding = typeof showLanding === 'function' ? showLanding : null;
-if (_origShowLanding) {
-  window.showLanding = function(...args) { closeMobDrawers(); _origShowLanding(...args); };
-}
 </script>
 </body>
 </html>
