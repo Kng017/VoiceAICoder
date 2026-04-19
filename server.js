@@ -211,20 +211,6 @@ app.get('/files/list', authMiddleware, async (req, res) => {
   }
 });
 
-// ── DELETE FILE ──
-app.delete('/files/delete/:id', authMiddleware, async (req, res) => {
-  try {
-    await pool.query(
-      'DELETE FROM public.user_files WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.id]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    console.error('File delete error:', err);
-    res.status(500).json({ error: 'Delete failed' });
-  }
-});
-
 // ── SHARE CODE ──
 app.post('/files/share', async (req, res) => {
   const { filename, code } = req.body;
@@ -235,7 +221,7 @@ app.post('/files/share', async (req, res) => {
       'INSERT INTO public.shared_files (share_id, filename, code, created_at) VALUES ($1, $2, $3, NOW())',
       [id, filename || 'snippet.cpp', code]
     );
-    const url = `${process.env.FRONTEND_URL || 'https://voicecoder.netlify.app/index.html'}?share=${id}`;
+    const url = `${process.env.FRONTEND_URL || 'https://voicecoder.netlify.app'}?share=${id}`;
     res.json({ url });
   } catch (err) {
     console.error('Share error:', err);
@@ -284,28 +270,28 @@ app.post('/compile/judge0', async (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ success: false, error: 'No code' });
   try {
-    const nodeFetch = await import('node-fetch').then(m => m.default);
-    const sub = await nodeFetch('https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true', {
+    const body = JSON.stringify({ source_code: code, language_id: 54, stdin: '' });
+    const sub = await httpsRequest('https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
         'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
-      },
-      body: JSON.stringify({ source_code: code, language_id: 54, stdin: '' })
-    });
-    if (!sub.ok) {
-      // Fallback to Paiza if no RapidAPI key
-      const cr = await nodeFetch('https://api.paiza.io/runners/create?source_code=' + encodeURIComponent(code) + '&language=cpp&api_key=guest', { method: 'POST' });
-      if (!cr.ok) return res.json({ success: false, error: 'Compiler unavailable' });
-      const { id } = await cr.json();
-      await new Promise(r => setTimeout(r, 3000));
-      const gr = await nodeFetch('https://api.paiza.io/runners/get_details?id=' + id + '&api_key=guest');
-      const d = await gr.json();
+      }
+    }, body);
+    if (sub.status !== 200) {
+      // Fallback to Paiza
+      const cr = await httpsRequest('https://api.paiza.io/runners/create?source_code=' + encodeURIComponent(code) + '&language=cpp&api_key=guest', { method: 'POST' });
+      if (cr.status !== 200) return res.json({ success: false, error: 'Compiler unavailable' });
+      const { id } = cr.json();
+      await new Promise(r => setTimeout(r, 4000));
+      const gr = await httpsRequest('https://api.paiza.io/runners/get_details?id=' + id + '&api_key=guest');
+      const d = gr.json();
       if (d.build_result === 'failure') return res.json({ success: false, error: d.build_stderr || 'Build failed' });
       return res.json({ success: true, output: d.stdout || '(no output)' });
     }
-    const d = await sub.json();
+    const d = sub.json();
     if (d.compile_output) return res.json({ success: false, errors: [d.compile_output] });
     if (d.stderr) return res.json({ success: false, errors: [d.stderr] });
     res.json({ success: true, output: d.stdout || '(no output)' });
@@ -321,54 +307,86 @@ app.get('/health', (_, res) => res.json({ status: 'ok', ts: new Date() }));
 // COMPILE PROXY — avoids CORS issues from the browser
 
 // Paiza.io proxy
+// ── Helper: native HTTPS request (no node-fetch needed) ──
+function httpsRequest(url, options = {}, body = null) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const http  = require('http');
+    const lib   = url.startsWith('https') ? https : http;
+    const parsed = new URL(url);
+    const reqOpts = {
+      hostname: parsed.hostname,
+      port:     parsed.port || (url.startsWith('https') ? 443 : 80),
+      path:     parsed.pathname + parsed.search,
+      method:   options.method || 'GET',
+      headers:  options.headers || {},
+    };
+    const req = lib.request(reqOpts, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, json: () => JSON.parse(data), text: () => data }); }
+        catch(e) { resolve({ status: res.statusCode, json: () => ({}), text: () => data }); }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+// Paiza.io proxy
 app.post('/compile/paiza', async (req, res) => {
   const { code } = req.body;
-  if (!code) return res.status(400).json({ success: false, error: 'No code provided' });
+  if (!code) return res.status(400).json({ success: false, error: 'No code' });
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
-    const cr = await fetch(
+    const cr = await httpsRequest(
       'https://api.paiza.io/runners/create?source_code=' + encodeURIComponent(code) + '&language=cpp&api_key=guest',
       { method: 'POST' }
     );
-    if (!cr.ok) return res.json({ success: false, error: 'Paiza create failed: ' + cr.status });
-    const { id } = await cr.json();
-    await new Promise(r => setTimeout(r, 3000));
-    const gr = await fetch('https://api.paiza.io/runners/get_details?id=' + id + '&api_key=guest');
-    if (!gr.ok) return res.json({ success: false, error: 'Paiza details failed: ' + gr.status });
-    const d = await gr.json();
+    if (cr.status !== 200) return res.json({ success: false, error: 'Paiza unavailable (' + cr.status + ')' });
+    const { id } = cr.json();
+    if (!id) return res.json({ success: false, error: 'Paiza: no run ID returned' });
+
+    await new Promise(r => setTimeout(r, 4000));
+
+    const gr = await httpsRequest('https://api.paiza.io/runners/get_details?id=' + id + '&api_key=guest');
+    const d  = gr.json();
+
     if (d.build_result === 'failure')
-      return res.json({ success: false, error: d.build_stderr || 'Build failed' });
-    return res.json({ success: true, output: d.stdout || '(no output)' });
+      return res.json({ success: false, error: d.build_stderr || d.build_stdout || 'Compile error' });
+    if (d.result === 'timeout')
+      return res.json({ success: false, error: 'Execution timed out' });
+
+    const output = [d.stdout, d.stderr].filter(Boolean).join('\n') || '(no output)';
+    res.json({ success: true, output });
   } catch (err) {
-    console.error('Paiza proxy error:', err);
-    res.json({ success: false, error: err.message });
+    console.error('Paiza error:', err.message);
+    res.json({ success: false, error: 'Paiza unreachable: ' + err.message });
   }
 });
 
 // JDoodle proxy
 app.post('/compile/jdoodle', async (req, res) => {
   const { code } = req.body;
-  if (!code) return res.status(400).json({ success: false, error: 'No code provided' });
+  if (!code) return res.status(400).json({ success: false, error: 'No code' });
   const clientId     = process.env.JDOODLE_CLIENT_ID;
   const clientSecret = process.env.JDOODLE_CLIENT_SECRET;
   if (!clientId || !clientSecret)
-    return res.json({ success: false, error: 'JDoodle credentials not configured on server' });
+    return res.json({ success: false, error: 'JDoodle credentials not set in Railway Variables' });
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
-    const r = await fetch('https://api.jdoodle.com/v1/execute', {
+    const body = JSON.stringify({ clientId, clientSecret, script: code, language: 'cpp17', versionIndex: '0' });
+    const r = await httpsRequest('https://api.jdoodle.com/v1/execute', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, clientSecret, script: code, language: 'cpp17', versionIndex: '0' })
-    });
-    if (!r.ok) return res.json({ success: false, error: 'JDoodle HTTP ' + r.status });
-    const d = await r.json();
-    if (d.error) return res.json({ success: false, error: d.error });
-    if (d.output?.toLowerCase().includes('error:'))
-      return res.json({ success: false, error: d.output });
-    return res.json({ success: true, output: d.output || '' });
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    }, body);
+    const d = r.json();
+    if (d.error)  return res.json({ success: false, error: d.error });
+    if (d.output?.toLowerCase().includes('error:')) return res.json({ success: false, error: d.output });
+    res.json({ success: true, output: d.output || '(no output)' });
   } catch (err) {
-    console.error('JDoodle proxy error:', err);
-    res.json({ success: false, error: err.message });
+    console.error('JDoodle error:', err.message);
+    res.json({ success: false, error: 'JDoodle unreachable: ' + err.message });
   }
 });
 
