@@ -15,13 +15,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:3000',
   'http://localhost:4000',
-  // add any other frontend URLs here
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // allow non-browser clients
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     callback(new Error(`CORS blocked: ${origin}`));
   },
@@ -30,8 +28,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Handle OPTIONS preflight for all routes
-app.options('*', cors());
+// Handle OPTIONS preflight — use regex, NOT '*' (breaks path-to-regexp v8+)
+app.options(/.*/, cors());
 
 app.use(express.json());
 app.use(express.static(__dirname));
