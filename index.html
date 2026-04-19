@@ -1,0 +1,2772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceCoder — AI-Powered C++ IDE</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>var require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } };</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f; --bg2: #111118; --bg3: #18181f; --bg4: #1e1e28;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --accent: #7c6dfa; --accent2: #a78bfa; --accent3: #c4b5fd;
+    --green: #22d3a0; --green2: #10b981; --red: #f87171; --amber: #fbbf24;
+    --text: #f0eeff; --text2: #9d9ab5; --text3: #5a5870;
+    --mono: 'JetBrains Mono', monospace; --sans: 'Orbitron', sans-serif;
+    --ai: #f472b6; --ai2: #fb7185; --ai-glow: rgba(244,114,182,0.15);
+  }
+  body.light-mode {
+    --bg:#f5f5fa;--bg2:#ffffff;--bg3:#ededf4;--bg4:#e2e2ec;
+    --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.14);
+    --accent:#5b4de8;--accent2:#7c6dfa;--accent3:#5b4de8;
+    --green:#0d9e74;--green2:#059669;--red:#dc2626;--amber:#d97706;
+    --text:#1a1830;--text2:#4a4868;--text3:#9896b0;
+    --ai:#db2777;--ai2:#e11d48;--ai-glow:rgba(219,39,119,0.1);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;transition:background-color 0.2s,border-color 0.2s,color 0.15s}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+
+  /* TOPBAR */
+  .topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100}
+  .logo{display:flex;align-items:center;gap:10px;cursor:pointer}
+  .logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .logo-icon svg{width:16px;height:16px;fill:white}
+  .logo-text{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-0.3px}
+  .logo-text span{color:var(--accent2)}
+  .ai-badge{background:linear-gradient(135deg,#7c6dfa,#f472b6);color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:0.5px}
+  .nav-pills{display:flex;gap:4px}
+  .nav-pill{padding:5px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.15s;border:none;background:none;font-family:var(--sans)}
+  .nav-pill:hover{background:var(--bg4);color:var(--text)}
+  .nav-pill.active{background:var(--bg4);color:var(--accent3)}
+  .topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:all 0.3s}
+  .status-dot.listening{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse-dot 1.2s infinite}
+  .status-dot.processing{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+  .status-dot.ai{background:var(--ai);box-shadow:0 0 8px var(--ai);animation:pulse-dot 1s infinite}
+  .status-dot.error{background:var(--red)}
+  @keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.7}}
+  .status-label{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:90px}
+  .btn{padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--sans);display:flex;align-items:center;gap:6px;white-space:nowrap;border:none}
+  .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+  .btn-ghost:hover{background:var(--bg4);color:var(--text)}
+  .btn-accent{background:var(--accent);border:1px solid transparent;color:white}
+  .btn-accent:hover{background:#6b5de8}
+  .btn-green{background:var(--green2);border:1px solid transparent;color:white}
+  .btn-green:hover{background:#059669}
+  .btn-ai{background:linear-gradient(135deg,#7c6dfa,#f472b6);border:1px solid transparent;color:white}
+  .btn-ai:hover{opacity:0.9;transform:scale(1.02)}
+  .btn-sm{padding:4px 10px;font-size:11px;border-radius:5px}
+  .sep{width:1px;height:18px;background:var(--border2);flex-shrink:0}
+
+  /* LAYOUT */
+  .app-layout{display:grid;grid-template-columns:240px 1fr 320px;height:calc(100vh - 52px);overflow:hidden}
+
+  /* SIDEBAR */
+  .sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .sidebar-section{padding:12px;border-bottom:1px solid var(--border)}
+  .sidebar-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;padding:0 4px}
+  .mic-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 12px;gap:10px}
+  .mic-btn{width:72px;height:72px;border-radius:50%;background:var(--bg4);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;position:relative}
+  .mic-btn:hover{border-color:var(--accent);transform:scale(1.05)}
+  .mic-btn.active{background:var(--accent);border-color:var(--accent);animation:mic-pulse 1.5s infinite}
+  @keyframes mic-pulse{0%,100%{box-shadow:0 0 0 8px rgba(124,109,250,.15),0 0 0 16px rgba(124,109,250,.07)}50%{box-shadow:0 0 0 12px rgba(124,109,250,.2),0 0 0 24px rgba(124,109,250,.04)}}
+  .mic-btn svg{width:28px;height:28px}
+  .mic-state{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center}
+  .mic-state.active{color:var(--green)}
+  .perm-btn{display:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);color:var(--amber);font-family:var(--sans)}
+  .perm-btn.show{display:block}
+  .vol-bar{width:100%;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+  .vol-fill{height:100%;width:0;background:var(--accent);transition:width 0.1s;border-radius:2px}
+  .conf-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding:0 2px}
+  .conf-label{font-family:var(--mono);font-size:9px;color:var(--text3)}
+  .conf-bar{width:100%;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+  .conf-fill{height:100%;width:0;border-radius:2px;transition:width 0.3s}
+  .waveform-container{padding:12px}
+  #waveform-canvas{width:100%;height:50px;border-radius:4px;display:block}
+  .transcript-wrap{position:relative}
+  .transcript-box{min-height:40px;background:var(--bg3);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.5;word-break:break-word}
+  .transcript-placeholder{color:var(--text3)}
+  .transcript-badge{position:absolute;top:6px;right:6px;background:var(--green2);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;font-family:var(--mono);animation:pulse-dot 1s infinite}
+  .cmd-list{flex:1;overflow-y:auto;padding:8px}
+  .cmd-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:var(--bg3)}
+  .cmd-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .cmd-icon.ok{background:rgba(34,211,160,0.15)}
+  .cmd-icon.ok svg{stroke:var(--green);width:10px;height:10px}
+  .cmd-icon.err{background:rgba(248,113,113,0.15)}
+  .cmd-icon.err svg{stroke:var(--red);width:10px;height:10px}
+  .cmd-icon.ai-ok{background:rgba(244,114,182,0.15)}
+  .cmd-icon.ai-ok svg{stroke:var(--ai);width:10px;height:10px}
+  .cmd-text{font-family:var(--mono);font-size:10px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cmd-conf{font-family:var(--mono);font-size:9px;color:var(--text3);flex-shrink:0}
+  .cmd-time{font-family:var(--mono);font-size:9px;color:var(--text3);flex-shrink:0}
+  .input-bar{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+  .cmd-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none}
+  .cmd-input:focus{border-color:var(--accent)}
+
+  /* EDITOR */
+  .editor-area{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+  .editor-toolbar{height:44px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;padding:0 10px;overflow:hidden}
+  .tabs-scroll-area{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none;min-width:0}
+  .tabs-scroll-area::-webkit-scrollbar{display:none}
+  .file-tab{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px 6px 0 0;font-family:var(--mono);font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-bottom:none;margin-bottom:-1px;transition:all 0.15s}
+  .file-tab:hover{color:var(--text);background:var(--bg4)}
+  .file-tab.active{background:var(--bg);color:var(--accent3);border-color:var(--border2)}
+  .tab-name{max-width:100px;overflow:hidden;text-overflow:ellipsis}
+  .file-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);opacity:0;transition:opacity 0.2s}
+  .file-dot.show{opacity:1}
+  .tab-close{width:14px;height:14px;display:flex;align-items:center;justify-content:center;border-radius:3px;opacity:0;transition:opacity 0.15s;cursor:pointer;flex-shrink:0}
+  .tab-close:hover{background:var(--bg4)}
+  .tab-close svg{width:10px;height:10px;stroke:var(--text3)}
+  .file-tab:hover .tab-close,.file-tab.active .tab-close{opacity:1}
+  .tab-add-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:var(--text3);flex-shrink:0;transition:all 0.15s}
+  .tab-add-btn:hover{background:var(--bg4);color:var(--text)}
+  .tab-add-btn svg{width:14px;height:14px;stroke:currentColor}
+  .toolbar-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}
+  .editor-wrap{flex:1;overflow:hidden;position:relative}
+  .editor-inner{display:flex;height:100%;overflow:hidden}
+  .line-numbers{padding:12px 0;min-width:44px;text-align:right;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--text3);background:var(--bg2);border-right:1px solid var(--border);user-select:none;overflow:hidden}
+  .code-editor-ta{flex:1;padding:12px 16px;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--text);background:var(--bg);border:none;outline:none;resize:none;tab-size:4;overflow-y:auto;white-space:pre}
+  .output-pane{height:180px;background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .output-tabs{display:flex;gap:2px;padding:6px 10px 0;border-bottom:1px solid var(--border)}
+  .output-tab{padding:4px 12px;border-radius:5px 5px 0 0;font-size:11px;font-weight:500;cursor:pointer;color:var(--text3);transition:all 0.15s;font-family:var(--sans);display:flex;align-items:center;gap:5px}
+  .output-tab:hover{color:var(--text2)}
+  .output-tab.active{background:var(--bg3);color:var(--text)}
+  .badge{background:var(--bg4);color:var(--text3);font-size:9px;padding:1px 5px;border-radius:4px;font-family:var(--mono)}
+  .output-content{flex:1;overflow-y:auto;padding:8px 12px;font-family:var(--mono);font-size:11px;line-height:1.8}
+  .out-line{display:flex;gap:8px;align-items:flex-start}
+  .out-line .prompt{color:var(--text3);flex-shrink:0}
+  .out-line.success .val{color:var(--green)}
+  .out-line.error .val{color:var(--red)}
+  .out-line.warn .val{color:var(--amber)}
+  .out-line.info .val{color:var(--text2)}
+  .out-line.ai-msg .val{color:var(--ai2)}
+
+  /* RIGHT PANEL */
+  .right-panel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .panel-tabs{display:flex;gap:2px;padding:8px 8px 0;border-bottom:1px solid var(--border)}
+  .panel-tab{padding:5px 10px;border-radius:5px 5px 0 0;font-size:12px;font-weight:500;cursor:pointer;color:var(--text3);transition:all 0.15s;font-family:var(--sans)}
+  .panel-tab:hover{color:var(--text2)}
+  .panel-tab.active{background:var(--bg3);color:var(--text)}
+  .panel-body{flex:1;overflow-y:auto;padding:12px}
+
+  /* AI CHAT PANEL */
+  .ai-chat-wrap{display:flex;flex-direction:column;height:100%}
+  .ai-chat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px}
+  .ai-msg-bubble{padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.6;max-width:100%;word-break:break-word}
+  .ai-msg-bubble.user{background:var(--bg4);color:var(--text);border-radius:10px 10px 4px 10px;align-self:flex-end;font-family:var(--mono)}
+  .ai-msg-bubble.assistant{background:linear-gradient(135deg,rgba(124,109,250,0.1),rgba(244,114,182,0.1));border:1px solid rgba(244,114,182,0.2);color:var(--text);border-radius:10px 10px 10px 4px;align-self:flex-start}
+  .ai-msg-bubble pre{background:var(--bg3);padding:8px;border-radius:6px;overflow-x:auto;margin-top:6px;font-size:11px;border:1px solid var(--border)}
+  .ai-msg-bubble code{font-family:var(--mono);font-size:11px}
+  .ai-input-row{display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border);margin-top:auto}
+  .ai-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none;resize:none;height:60px}
+  .ai-input:focus{border-color:var(--ai)}
+  .ai-thinking{display:flex;gap:4px;align-items:center;padding:8px 12px;background:rgba(244,114,182,0.08);border-radius:8px;border:1px solid rgba(244,114,182,0.15)}
+  .ai-thinking span{font-size:11px;color:var(--ai);font-style:italic}
+  .ai-dot{width:5px;height:5px;border-radius:50%;background:var(--ai);animation:ai-bounce 1s infinite}
+  .ai-dot:nth-child(2){animation-delay:0.15s}
+  .ai-dot:nth-child(3){animation-delay:0.3s}
+  @keyframes ai-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .ai-action-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .ai-quick-btn{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;background:var(--bg4);border:1px solid var(--border2);color:var(--text2);font-family:var(--sans);transition:all 0.15s;white-space:nowrap}
+  .ai-quick-btn:hover{border-color:var(--ai);color:var(--ai);background:var(--ai-glow)}
+
+  /* AI GLOW on active */
+  .ai-active .mic-btn.active{background:linear-gradient(135deg,var(--accent),var(--ai));animation:mic-pulse-ai 1.5s infinite}
+  @keyframes mic-pulse-ai{0%,100%{box-shadow:0 0 0 8px rgba(244,114,182,.15),0 0 0 16px rgba(244,114,182,.07)}50%{box-shadow:0 0 0 12px rgba(244,114,182,.2),0 0 0 24px rgba(244,114,182,.04)}}
+
+  /* CMD GUIDE */
+  .cmd-guide-section{margin-bottom:16px}
+  .cmd-guide-title{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+  .cmd-card{background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;border:1px solid transparent}
+  .cmd-card:hover{border-color:var(--accent);background:var(--bg4)}
+  .cmd-voice{font-family:var(--mono);font-size:11px;color:var(--accent3);margin-bottom:2px}
+  .cmd-desc{font-size:11px;color:var(--text2)}
+  .cmd-output{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;background:var(--bg2);padding:4px 6px;border-radius:4px}
+
+  /* SNIPPETS */
+  .snippet-card{background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;border:1px solid transparent}
+  .snippet-card:hover{border-color:var(--accent)}
+  .snippet-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
+  .snippet-code{font-family:var(--mono);font-size:10px;color:var(--text3);white-space:pre;overflow:hidden;max-height:40px}
+
+  /* SETTINGS */
+  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+  .setting-label{font-size:12px;color:var(--text2)}
+  .setting-sub{font-size:10px;color:var(--text3);margin-top:2px}
+  .toggle{width:34px;height:18px;background:var(--bg4);border-radius:9px;position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;border:none}
+  .toggle.on{background:var(--accent)}
+  .toggle::after{content:'';position:absolute;width:12px;height:12px;background:white;border-radius:50%;top:3px;left:3px;transition:left 0.2s}
+  .toggle.on::after{left:19px}
+  .api-key-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--text);outline:none;margin-top:4px}
+  .api-key-input:focus{border-color:var(--accent)}
+  select.sel{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);outline:none;cursor:pointer;font-family:var(--sans)}
+
+  /* MODALS */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity 0.2s;backdrop-filter:blur(4px)}
+  .modal-backdrop.show{opacity:1;pointer-events:all}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:24px;width:480px;max-height:80vh;overflow-y:auto}
+  .modal-title{font-size:18px;font-weight:700;margin-bottom:4px}
+  .modal-sub{font-size:13px;color:var(--text2);margin-bottom:16px}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .rename-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none}
+  .rename-input:focus{border-color:var(--accent)}
+
+  /* AUTH */
+  .auth-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:600;backdrop-filter:blur(6px)}
+  .auth-backdrop.show{display:flex}
+  .auth-box{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:28px;width:380px;position:relative}
+  .auth-close{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--text3);cursor:pointer;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+  .auth-close:hover{background:var(--bg4);color:var(--text)}
+  .auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .auth-logo-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .auth-logo-icon svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2}
+  .auth-logo-text{font-size:18px;font-weight:700}
+  .auth-logo-text span{color:var(--accent2)}
+  .auth-tabs{display:flex;background:var(--bg3);border-radius:8px;padding:3px;gap:3px;margin-bottom:18px}
+  .auth-tab-btn{flex:1;padding:6px;border-radius:6px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all 0.15s}
+  .auth-tab-btn.active{background:var(--bg2);color:var(--text)}
+  .auth-field{margin-bottom:14px}
+  .auth-label{font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px}
+  .auth-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;font-family:var(--sans)}
+  .auth-input:focus{border-color:var(--accent)}
+  .auth-input.error{border-color:var(--red)}
+  .auth-err{font-size:11px;color:var(--red);margin-top:3px;min-height:15px}
+  .auth-submit{width:100%;padding:10px;border-radius:9px;background:var(--accent);border:none;color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;margin-bottom:12px}
+  .auth-submit:hover{background:#6b5de8}
+  .auth-switch{text-align:center;font-size:12px;color:var(--text2)}
+  .auth-switch a{color:var(--accent2);cursor:pointer;text-decoration:none}
+  .password-wrap{position:relative}
+  .password-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+
+  /* USER MENU */
+  .user-btn{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text);position:relative}
+  .user-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:6px;min-width:160px;opacity:0;pointer-events:none;transform:translateY(-4px);transition:all 0.15s;z-index:200}
+  .user-menu.show{opacity:1;pointer-events:all;transform:translateY(0)}
+  .menu-item{padding:7px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text2);transition:all 0.1s}
+  .menu-item:hover{background:var(--bg4);color:var(--text)}
+  .menu-item.danger:hover{background:rgba(248,113,113,0.1);color:var(--red)}
+
+  /* TAB CONTEXT MENU */
+  .tab-ctx-menu{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:5px;min-width:150px;opacity:0;pointer-events:none;z-index:300;transition:opacity 0.1s}
+  .tab-ctx-menu.show{opacity:1;pointer-events:all}
+  .ctx-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text2);transition:background 0.1s}
+  .ctx-item:hover{background:var(--bg4);color:var(--text)}
+  .ctx-item.danger:hover{background:rgba(248,113,113,0.1);color:var(--red)}
+  .ctx-sep{height:1px;background:var(--border);margin:4px 0}
+
+  /* TOAST */
+  .toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:1000;pointer-events:none}
+  .toast{padding:10px 14px;border-radius:10px;font-size:12px;font-weight:500;max-width:300px;animation:toast-in 0.3s ease;pointer-events:all;display:flex;align-items:center;gap:8px;font-family:var(--sans)}
+  .toast.success{background:#0c2a1e;border:1px solid var(--green2);color:var(--green)}
+  .toast.error{background:#2a0c0c;border:1px solid var(--red);color:var(--red)}
+  .toast.warn{background:#2a1e0c;border:1px solid var(--amber);color:var(--amber)}
+  .toast.info{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
+  .toast.ai{background:#1a0a1e;border:1px solid var(--ai);color:var(--ai)}
+  @keyframes toast-in{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+  /* BANNER */
+  .banner{display:none;align-items:center;gap:10px;padding:8px 16px;font-size:12px;font-weight:500;border-bottom:1px solid var(--border)}
+  .banner.show{display:flex}
+  .banner.warn{background:rgba(251,191,36,0.08);color:var(--amber)}
+  .banner.error{background:rgba(248,113,113,0.08);color:var(--red)}
+  .banner-close{margin-left:auto;cursor:pointer;background:none;border:none;color:inherit;font-size:16px;line-height:1}
+
+  /* COMPILE SPINNER */
+  .compile-spinner{width:10px;height:10px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;flex-shrink:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* AI SPINNER (inline in button) */
+  .ai-spinner{width:10px;height:10px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;flex-shrink:0}
+
+  /* LANDING PAGE */
+  .landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 52px);padding:40px 20px;text-align:center}
+  .landing h1{font-size:48px;font-weight:800;line-height:1.1;margin-bottom:16px;background:linear-gradient(135deg,var(--text),var(--accent2),var(--ai));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .landing p{font-size:18px;color:var(--text2);margin-bottom:32px;max-width:600px;line-height:1.6}
+  .landing-btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:48px}
+  .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:800px;width:100%;margin-top:24px}
+  .feature-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:left}
+  .feature-card h3{font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text)}
+  .feature-card p{font-size:12px;color:var(--text2);line-height:1.5}
+  .feat-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+  /* AI KEY NOTICE */
+  .ai-key-notice{background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--ai);line-height:1.5}
+  .ai-key-notice a{color:var(--ai2);cursor:pointer;text-decoration:underline}
+
+  /* MONACO EDITOR WRAPPER */
+  #monaco-editor-container{flex:1;overflow:hidden;position:relative;min-height:0}
+  .monaco-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;font-family:var(--mono);gap:8px}
+
+  /* AI AUTOCOMPLETE GHOST */
+  .autocomplete-ghost{position:absolute;pointer-events:none;opacity:0.42;font-family:'JetBrains Mono',monospace;font-size:13px;white-space:pre;z-index:10;color:var(--accent3);background:transparent;padding:0;border:none;line-height:1.6}
+  .autocomplete-hint{position:absolute;bottom:4px;right:8px;font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;opacity:0;transition:opacity 0.2s;pointer-events:none}
+  .autocomplete-hint.show{opacity:1}
+
+  /* CLOUD SAVE BUTTON */
+  .btn-cloud{background:linear-gradient(135deg,#0ea5e9,#38bdf8);border:1px solid transparent;color:white}
+  .btn-cloud:hover{opacity:0.9;transform:scale(1.02)}
+
+  /* URDU TTS INDICATOR */
+  .urdu-badge{background:linear-gradient(135deg,#16a34a,#22c55e);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;font-family:var(--mono)}
+
+  /* CUSTOM COMMANDS */
+  .custom-cmd-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+  .custom-cmd-row input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:4px 8px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none}
+  .custom-cmd-row input:focus{border-color:var(--accent)}
+
+  /* ERROR EXPLANATION */
+  .error-explain-box{background:rgba(244,114,182,0.06);border:1px solid rgba(244,114,182,0.25);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:11px;color:var(--text2);line-height:1.6}
+  .error-explain-box strong{color:var(--ai)}
+
+  /* DASHBOARD CARDS */
+  .dashboard-card{background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)}
+  .dashboard-card h4{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .file-row{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;background:var(--bg2);margin-bottom:4px;transition:background 0.15s}
+  .file-row:hover{background:var(--bg4)}
+  .file-row-name{font-family:var(--mono);font-size:11px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .file-row-date{font-size:10px;color:var(--text3);flex-shrink:0;margin-left:8px}
+  .share-box{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px;font-family:var(--mono);font-size:10px;color:var(--accent3);cursor:pointer;margin-top:8px;word-break:break-all;transition:background 0.15s}
+  .share-box:hover{background:var(--bg4)}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar" id="topbar">
+  <div class="logo" onclick="guardedShowEditor()">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </div>
+    <span class="logo-text">Voice<span>Coder</span></span>
+    <span class="ai-badge">AI</span>
+  </div>
+  <div class="nav-pills" id="nav-pills" style="display:none">
+    <button class="nav-pill active" onclick="showEditor()">Editor</button>
+    <button class="nav-pill" onclick="showLanding()">Home</button>
+  </div>
+  <div class="topbar-right">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-label" id="status-label">idle</span>
+    <div class="sep"></div>
+    <!-- Auth area -->
+    <div id="auth-area" style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost" onclick="openAuthModal('signin')" style="font-size:12px;padding:5px 12px">Sign In</button>
+      <button class="btn btn-accent" onclick="openAuthModal('signup')" style="font-size:12px;padding:5px 12px">Sign Up</button>
+    </div>
+    <div id="user-area" style="display:none;position:relative">
+      <div class="user-btn" onclick="toggleUserMenu(event)" id="user-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="user-name-label">User</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="user-menu" id="user-menu">
+        <div class="menu-item" id="user-email-item" style="font-size:11px;color:var(--text3);pointer-events:none;padding:5px 10px"></div>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <div class="menu-item danger" onclick="doSignOut()">Sign Out</div>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <button class="btn btn-ghost" onclick="toggleSettingsDrawer()" id="settings-topbar-btn" title="Settings" style="padding:5px 8px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="btn btn-ghost" onclick="toggleTheme()" id="theme-btn" style="padding:5px 10px;font-size:11px">☀ Light</button>
+  </div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<div id="settings-drawer" style="display:none;position:fixed;top:52px;right:0;width:320px;height:calc(100vh - 52px);background:var(--bg2);border-left:1px solid var(--border2);z-index:400;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,0.3)">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1">
+    <span style="font-size:14px;font-weight:600">Settings</span>
+    <button onclick="toggleSettingsDrawer()" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div id="settings-drawer-body" style="padding:14px"></div>
+</div>
+<div id="settings-overlay" style="display:none;position:fixed;inset:0;z-index:399" onclick="toggleSettingsDrawer()"></div>
+
+<div class="banner" id="banner">
+  <span id="banner-msg"></span>
+  <button class="banner-close" onclick="hideBanner()">×</button>
+</div>
+
+<!-- LANDING PAGE -->
+<div id="landing-page">
+  <div class="landing">
+    <h1>Code with Your Voice<br>Powered by AI</h1>
+    <p>VoiceCoder is a voice-driven C++ IDE that understands natural language commands — backed by GPT-4o for for intelligent code generation, error fixing, and real-time assistance.</p>
+    <div class="landing-btns">
+      <button class="btn btn-ai" style="padding:12px 28px;font-size:15px" onclick="guardedShowEditor()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Open IDE
+      </button>
+      <button id="landing-signup-btn" class="btn btn-ghost" style="padding:12px 24px;font-size:15px" onclick="openAuthModal('signup')">Create Account</button>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feat-icon" style="background:rgba(124,109,250,0.15)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+        </div>
+        <h3>Natural Voice Commands</h3>
+        <p>Say anything — AI understands "write a bubble sort" or "add a function that reads a file"</p>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon" style="background:rgba(244,114,182,0.15)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ai)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <h3>AI Error Fixer</h3>
+        <p>Compilation errors? Say "fix errors" and AI patches your code automatically</p>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon" style="background:rgba(34,211,160,0.15)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3>AI Code Chat</h3>
+        <p>Built-in AI assistant answers C++ questions, reviews your code, and suggests improvements</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app-page" style="display:none">
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section mic-wrap">
+        <button class="perm-btn" id="perm-btn" onclick="requestMicPermission()">Allow Microphone</button>
+        <div class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Toggle microphone (Ctrl+M)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </div>
+        <div class="mic-state" id="mic-state">Click to start listening</div>
+        <div style="width:100%">
+          <div class="conf-row">
+            <span class="conf-label">Volume</span>
+          </div>
+          <div class="vol-bar"><div class="vol-fill" id="vol-fill"></div></div>
+          <div class="conf-row" style="margin-top:6px">
+            <span class="conf-label">Confidence</span>
+            <span class="conf-label" id="confidence-pct">—</span>
+          </div>
+          <div class="conf-bar"><div class="conf-fill" id="confidence-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="sidebar-section waveform-container">
+        <div class="sidebar-label">Live Waveform</div>
+        <canvas id="waveform-canvas"></canvas>
+      </div>
+
+      <div class="sidebar-section" style="padding:12px">
+        <div class="sidebar-label">Transcript</div>
+        <div class="transcript-wrap">
+          <div class="transcript-box" id="transcript">
+            <span class="transcript-placeholder">Say a command...</span>
+          </div>
+          <span class="transcript-badge" id="transcript-badge" style="display:none">LIVE</span>
+        </div>
+      </div>
+
+      <div style="padding:12px 12px 4px;border-bottom:1px solid var(--border)">
+        <div class="sidebar-label">Command History</div>
+      </div>
+      <div class="cmd-list" id="cmd-list">
+        <div style="text-align:center;padding:20px;color:var(--text3);font-size:11px;font-family:var(--mono)">No commands yet</div>
+      </div>
+
+      <div class="input-bar">
+        <input class="cmd-input" id="text-cmd" placeholder="Type a command..." onkeydown="handleTextCmd(event)">
+        <button class="btn btn-accent btn-sm" onclick="executeTextCmd()">Run</button>
+      </div>
+    </div>
+
+    <!-- EDITOR -->
+    <div class="editor-area">
+      <div class="editor-toolbar" id="editor-toolbar">
+        <div class="tabs-scroll-area" id="tabs-scroll-area"></div>
+        <div class="tab-add-btn" onclick="addNewTab()" title="New file (Ctrl+T)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn btn-ghost btn-sm" onclick="clearActiveTab()">Clear</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyCode()">Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="saveFileToPC()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="loadFileFromPC()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Load
+          </button>
+          <button class="btn btn-ai btn-sm" id="ai-fix-btn" onclick="aiFixErrors()" title="AI Fix Errors">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            AI Fix
+          </button>
+          <button class="btn btn-cloud btn-sm" onclick="saveFileToCloud()" title="Save to Supabase Cloud">
+            ☁ Cloud
+          </button>
+          <button class="btn btn-green btn-sm" onclick="compileCode()" id="compile-btn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run
+          </button>
+        </div>
+        <input type="file" id="file-load-input" accept=".cpp,.c,.h,.hpp,.txt,.cc" style="display:none" onchange="handleFileLoad(event)" multiple>
+      </div>
+
+      <div class="editor-wrap">
+        <div id="monaco-editor-container" style="flex:1;height:100%;min-height:0">
+          <div class="monaco-loading" id="monaco-loading">
+            <div class="compile-spinner"></div> Loading Monaco Editor...
+          </div>
+        </div>
+        <!-- Hidden textarea for fallback/compatibility -->
+        <textarea id="code-editor" class="code-editor-ta" spellcheck="false" autocomplete="off" style="display:none"
+          onkeydown="handleEditorTab(event)"
+          oninput="updateLineNumbers();markActiveModified()"></textarea>
+      </div>
+
+      <div class="output-pane">
+        <div class="output-tabs">
+          <div class="output-tab active" onclick="switchOutputTab('output',this)">Output <span class="badge" id="output-badge">0</span></div>
+          <div class="output-tab" onclick="switchOutputTab('errors',this)">Errors <span class="badge" id="error-badge">0</span></div>
+          <div class="output-tab" onclick="switchOutputTab('logs',this)">Logs</div>
+        </div>
+        <div class="output-content" id="output-content">
+          <div class="out-line info"><span class="prompt">$</span><span class="val">VoiceCoder AI ready. Multi-tab editor active.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab" onclick="switchPanel('ai',this)">✦ AI Chat</div>
+        <div class="panel-tab active" onclick="switchPanel('guide',this)">Commands</div>
+        <div class="panel-tab" onclick="switchPanel('snippets',this)">Snippets</div>
+        <div class="panel-tab" onclick="switchPanel('dashboard',this)">Dashboard</div>
+      </div>
+      <div class="panel-body" id="panel-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="cmd-modal">
+  <div class="modal">
+    <div class="modal-title">Voice Command Guide</div>
+    <div class="modal-sub">All supported voice commands for VoiceCoder</div>
+    <div id="modal-content" style="max-height:400px;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('cmd-modal').classList.remove('show')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="rename-modal">
+  <div class="modal" style="width:360px">
+    <div class="modal-title">Rename File</div>
+    <div class="modal-sub">Enter a new name for this tab</div>
+    <input class="rename-input" id="rename-input" placeholder="filename.cpp"
+      onkeydown="if(event.key==='Enter')confirmRename();if(event.key==='Escape')document.getElementById('rename-modal').classList.remove('show')">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('rename-modal').classList.remove('show')">Cancel</button>
+      <button class="btn btn-accent" onclick="confirmRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<div class="tab-ctx-menu" id="tab-ctx-menu">
+  <div class="ctx-item" onclick="ctxRenameTab()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Rename
+  </div>
+  <div class="ctx-item" onclick="ctxSaveTab()">Save File</div>
+  <div class="ctx-item" onclick="ctxDuplicateTab()">Duplicate</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxCloseTab()">Close Tab</div>
+</div>
+
+<div class="auth-backdrop" id="auth-backdrop" onclick="onAuthBackdropClick(event)">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuthModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </div>
+      <span class="auth-logo-text">Voice<span>Coder</span></span>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab-btn active" id="auth-tab-signin" onclick="switchAuthTab('signin')">Sign In</button>
+      <button class="auth-tab-btn" id="auth-tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+    </div>
+    <div id="auth-signin-form">
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" id="si-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doSignIn()">
+        <div class="auth-err" id="si-email-err"></div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <div class="password-wrap">
+          <input class="auth-input" id="si-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()">
+          <button class="password-toggle" onclick="togglePwd('si-password',this)" tabindex="-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="auth-err" id="si-pass-err"></div>
+      </div>
+      <div class="auth-err" id="si-general-err" style="margin-bottom:8px;text-align:center"></div>
+      <button class="auth-submit" onclick="doSignIn()">Sign In</button>
+      <div class="auth-switch">Don't have an account? <a onclick="switchAuthTab('signup')">Sign up free</a></div>
+    </div>
+    <div id="auth-signup-form" style="display:none">
+      <div class="auth-field">
+        <label class="auth-label">Full Name</label>
+        <input class="auth-input" id="su-name" type="text" placeholder="Ada Lovelace" onkeydown="if(event.key==='Enter')doSignUp()">
+        <div class="auth-err" id="su-name-err"></div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" id="su-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doSignUp()">
+        <div class="auth-err" id="su-email-err"></div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <div class="password-wrap">
+          <input class="auth-input" id="su-password" type="password" placeholder="Min. 6 characters" onkeydown="if(event.key==='Enter')doSignUp()">
+          <button class="password-toggle" onclick="togglePwd('su-password',this)" tabindex="-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="auth-err" id="su-pass-err"></div>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Confirm Password</label>
+        <input class="auth-input" id="su-confirm" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignUp()">
+        <div class="auth-err" id="su-confirm-err"></div>
+      </div>
+      <div class="auth-err" id="su-general-err" style="margin-bottom:8px;text-align:center"></div>
+      <button class="auth-submit" onclick="doSignUp()">Create Account</button>
+      <div class="auth-switch">Already have an account? <a onclick="switchAuthTab('signin')">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// STATE
+let isDark = true;
+let currentUser = null;
+let isListening = false;
+let recognition = null;
+let speechSupported = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+let ttsSupported = ('speechSynthesis' in window);
+let micPermission = 'unknown';
+let recognitionLang = 'en-US';
+let audioCtx = null, analyser = null, micStream = null, animFrameId = null;
+let noSpeechTimer = null;
+let commandHistory = [];
+let outputLines = { output:[], errors:[], logs:[] };
+let currentOutputTab = 'output';
+let outputCount = 0, errorCount = 0;
+let currentPanel = 'guide';
+let echoCommands = true;
+let autoCompile = false;
+let aiMode = true; // use AI for voice commands
+let selectedApi = 'paiza';
+let lastErrors = [];
+let aiChatHistory = [];
+let ctxTargetTabId = null;
+
+// Web Speech API enhanced state 
+let ttsEnabled = true;          // Voice feedback (TTS)
+let pushToTalk = false;         // Hold Space to talk
+let pttActive = false;          // Push-to-talk currently held
+let noiseGateLevel = 0.02;      // Min amplitude to trigger (0–1)
+let restartAttempts = 0;        // For exponential backoff
+let maxRestartAttempts = 8;
+let restartDelay = 150;         // ms, doubles each time
+let recognitionRestartTimer = null;
+let lastFinalTranscript = '';   // Avoid duplicate commands
+let interimTranscriptBuffer = '';
+let volumeHistory = [];         // For noise gate smoothing
+// Spoken punctuation map
+const SPOKEN_PUNCTUATION = {
+  ' period':'.', ' full stop':'.', ' comma':',', ' semicolon':';',
+  ' colon':':', ' exclamation mark':'!', ' question mark':'?',
+  ' open paren':'(', ' close paren':')', ' open bracket':'[',
+  ' close bracket':']', ' open brace':'{', ' close brace':'}',
+  ' new line':'\n', ' newline':'\n', ' tab':'\t',
+  ' double quote':'"', ' single quote':"'", ' backslash':'\\',
+  ' forward slash':'/', ' equals sign':'=', ' plus sign':'+',
+  ' minus sign':'-', ' asterisk':'*', ' ampersand':'&',
+  ' pipe':'|', ' less than':'<', ' greater than':'>',
+  ' hash':'#', ' underscore':'_', ' tilde':'~', ' caret':'^',
+};
+
+// Tab state
+let tabIdCounter = 1;
+let activeTabId = null;
+const DEFAULT_CODE = `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Start coding with your voice or AI!\n    cout << "Hello, VoiceCoder AI!" << endl;\n    return 0;\n}\n`;
+let tabs = [{ id:1, name:'main.cpp', code:DEFAULT_CODE, modified:true, undoStack:[], scrollTop:0, cursorStart:0, cursorEnd:0 }];
+tabIdCounter = 2;
+
+// OPENAI AI INTEGRATION
+
+// Get API key from settings input
+function getApiKey() {
+  const el = document.getElementById('openai-api-key');
+  return el ? el.value.trim() : (localStorage.getItem('vc_openai_apikey') || '');
+}
+
+// Core OpenAI call
+async function callOpenAI(systemPrompt, userMessage, maxTokens = 800) {
+  const key = getApiKey();
+  if (!key) throw new Error('NO_KEY');
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content || '';
+}
+
+// 1. AI VOICE COMMAND — understands natural language, returns C++ code
+async function aiProcessVoiceCommand(raw, confidence) {
+  const code = getActiveTab().code;
+  setStatus('ai');
+  addLog('info', `🤖 AI processing: "${raw}"`);
+  const system = `You are an AI assistant embedded in VoiceCoder, a voice-driven C++ IDE.
+The user speaks a voice command and you must respond with ONLY valid C++ code to insert.
+
+Rules:
+- Respond with ONLY the C++ code snippet, no explanation, no markdown backticks
+- The code will be inserted at the cursor position in a C++ file
+- Keep snippets concise and correct
+- For structural commands like "new file", "close tab", "undo", "compile", "run", respond with exactly one of these keywords: ACTION:newtab ACTION:closetab ACTION:nexttab ACTION:prevtab ACTION:compile ACTION:undo ACTION:clear ACTION:explain ACTION:review ACTION:complete
+- If the command is completely unrelated to coding, respond with: ACTION:unknown`;
+
+  const user = `Current code in editor:\n\`\`\`cpp\n${code.substring(0,1500)}\n\`\`\`\n\nVoice command: "${raw}"\n\nRespond with ONLY the C++ code snippet to insert, or an ACTION: keyword.`;
+
+  try {
+    const reply = await callOpenAI(system, user, 600);
+    const trimmed = reply.trim();
+
+    if (trimmed.startsWith('ACTION:')) {
+      const action = trimmed.replace('ACTION:', '').trim();
+      if (action === 'newtab')   addNewTab();
+      else if (action === 'closetab')  closeTab(null, activeTabId);
+      else if (action === 'nexttab')   navigateTab(1);
+      else if (action === 'prevtab')   navigateTab(-1);
+      else if (action === 'compile')   compileCode();
+      else if (action === 'undo')      undoLast();
+      else if (action === 'clear')     clearActiveTab();
+      else if (action === 'explain')   aiExplainCode();
+      else if (action === 'review')    aiReviewCode();
+      else if (action === 'complete')  aiCompleteCode();
+      else { showToast('error', 'Command not recognized'); addCmdToHistory(raw, false, confidence); setStatus(isListening?'listening':'idle'); return; }
+      addCmdToHistory(raw, true, confidence, true);
+    } else {
+      // Clean up code (remove possible stray backticks)
+      const clean = trimmed.replace(/^```(?:cpp|c\+\+)?\n?/,'').replace(/\n?```$/,'');
+      insertCode(clean + (clean.endsWith('\n')?'':'\n'));
+      addCmdToHistory(raw, true, confidence, true);
+    }
+  } catch(e) {
+    if (e.message === 'NO_KEY') {
+      showToast('warn', 'Add OpenAI API key in Settings → AI');
+      addLog('warn', 'AI: No API key. Falling back to rules.');
+      processFallbackCommand(raw, confidence);
+    } else {
+      addLog('error', 'AI error: ' + e.message);
+      showToast('error', 'AI error — using rule fallback');
+      processFallbackCommand(raw, confidence);
+    }
+  }
+  setStatus(isListening ? 'listening' : 'idle');
+}
+
+// 2. AI FIX ERRORS
+async function aiFixErrors() {
+  saveActiveEditorState();
+  const tab = getActiveTab();
+  const code = tab.code;
+  const errors = lastErrors.join('\n') || 'No specific errors — review and improve code quality';
+  setStatus('ai');
+  const btn = document.getElementById('ai-fix-btn');
+  btn.innerHTML = '<div class="ai-spinner"></div> Fixing...';
+  btn.disabled = true;
+  addLog('info', '🤖 AI fixing errors...');
+
+  const system = `You are an expert C++ developer. Fix the provided C++ code based on compiler errors.
+Return ONLY the corrected, complete C++ code with no explanation, no markdown, no backticks.`;
+  const user = `Compiler errors:\n${errors}\n\nCode to fix:\n${code}`;
+
+  try {
+    const fixed = await callOpenAI(system, user, 1500);
+    const clean = fixed.trim().replace(/^```(?:cpp|c\+\+)?\n?/,'').replace(/\n?```$/,'');
+    tab.undoStack.push(code);
+    document.getElementById('code-editor').value = clean;
+    tab.code = clean;
+    tab.modified = true;
+    updateLineNumbers();
+    renderTabs();
+    addLog('success', '✓ AI fixed your code');
+    showToast('ai', 'AI fixed your code!');
+  } catch(e) {
+    if (e.message === 'NO_KEY') showToast('warn', 'Add API key in Settings → AI');
+    else { addLog('error', 'AI Fix error: ' + e.message); showToast('error', 'AI fix failed'); }
+  }
+  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> AI Fix';
+  btn.disabled = false;
+  setStatus(isListening ? 'listening' : 'idle');
+}
+
+// 3. AI EXPLAIN CODE
+async function aiExplainCode() {
+  saveActiveEditorState();
+  const code = getActiveTab().code;
+  switchPanel('ai', document.querySelector('.panel-tab'));
+  addAiMessage('user', 'Explain this code');
+  setStatus('ai');
+  showAiThinking();
+
+  const system = `You are an expert C++ teacher. Explain C++ code clearly and concisely for students.
+Use plain language. Mention key concepts. Keep it under 150 words. No markdown headers.`;
+
+  try {
+    const reply = await callOpenAI(system, `Explain this C++ code:\n${code}`, 400);
+    hideAiThinking();
+    addAiMessage('assistant', reply);
+  } catch(e) {
+    hideAiThinking();
+    if (e.message === 'NO_KEY') addAiMessage('assistant', '⚠ Add your OpenAI API key in Settings → AI tab to use AI features.');
+    else addAiMessage('assistant', `Error: ${e.message}`);
+  }
+  setStatus(isListening ? 'listening' : 'idle');
+}
+
+// 4. AI REVIEW CODE
+async function aiReviewCode() {
+  saveActiveEditorState();
+  const code = getActiveTab().code;
+  switchPanel('ai', document.querySelector('.panel-tab'));
+  addAiMessage('user', 'Review my code');
+  setStatus('ai');
+  showAiThinking();
+
+  const system = `You are a senior C++ code reviewer. Give a brief, constructive review.
+Cover: correctness, style, potential bugs, and one improvement suggestion.
+Be direct and helpful. Under 200 words. No markdown headers.`;
+
+  try {
+    const reply = await callOpenAI(system, `Review this C++ code:\n${code}`, 500);
+    hideAiThinking();
+    addAiMessage('assistant', reply);
+    showToast('ai', 'Code review ready!');
+  } catch(e) {
+    hideAiThinking();
+    if (e.message === 'NO_KEY') addAiMessage('assistant', '⚠ Add your OpenAI API key in Settings → AI tab.');
+    else addAiMessage('assistant', `Error: ${e.message}`);
+  }
+  setStatus(isListening ? 'listening' : 'idle');
+}
+
+// 5. AI COMPLETE CODE
+async function aiCompleteCode() {
+  saveActiveEditorState();
+  const tab = getActiveTab();
+  const code = tab.code;
+  switchPanel('ai', document.querySelector('.panel-tab'));
+  addAiMessage('user', 'Complete my code');
+  setStatus('ai');
+  showAiThinking();
+
+  const system = `You are an expert C++ developer. Complete the provided incomplete C++ code.
+Return ONLY the complete, working C++ code with no explanation and no markdown backticks.`;
+
+  try {
+    const completed = await callOpenAI(system, `Complete this C++ code:\n${code}`, 1000);
+    hideAiThinking();
+    const clean = completed.trim().replace(/^```(?:cpp|c\+\+)?\n?/,'').replace(/\n?```$/,'');
+    tab.undoStack.push(code);
+    document.getElementById('code-editor').value = clean;
+    tab.code = clean;
+    tab.modified = true;
+    updateLineNumbers(); renderTabs();
+    addAiMessage('assistant', 'Done! I completed your code. Check the editor.');
+    showToast('ai', 'Code completed by AI!');
+  } catch(e) {
+    hideAiThinking();
+    if (e.message === 'NO_KEY') addAiMessage('assistant', '⚠ Add your OpenAI API key in Settings → AI tab.');
+    else addAiMessage('assistant', `Error: ${e.message}`);
+  }
+  setStatus(isListening ? 'listening' : 'idle');
+}
+
+// 6. AI CHAT — multi-turn conversation
+async function sendAiChat() {
+  const input = document.getElementById('ai-chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  saveActiveEditorState();
+  const code = getActiveTab().code;
+
+  addAiMessage('user', msg);
+  aiChatHistory.push({ role:'user', content: msg });
+  setStatus('ai');
+  showAiThinking();
+
+  const system = `You are an expert C++ assistant embedded in VoiceCoder IDE.
+The user's current code is:\n\`\`\`cpp\n${code.substring(0,1500)}\n\`\`\`\n
+Help with C++ questions, debugging, explanations, and code generation.
+When showing code, wrap it in triple backticks with cpp. Keep responses concise and helpful.`;
+
+  // Build messages from history (last 10 turns)
+  const recentHistory = aiChatHistory.slice(-10);
+  const key = getApiKey();
+  if (!key) {
+    hideAiThinking();
+    addAiMessage('assistant', '⚠ No OpenAI API key found. Go to Settings → AI tab and paste your key to enable AI features.');
+    setStatus(isListening ? 'listening' : 'idle');
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 800,
+        messages: [
+          { role: 'system', content: system },
+          ...recentHistory
+        ]
+      })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message||`HTTP ${res.status}`); }
+    const data = await res.json();
+    const reply = data.choices[0].message.content || '';
+    hideAiThinking();
+    aiChatHistory.push({ role:'assistant', content:reply });
+    addAiMessage('assistant', reply);
+  } catch(e) {
+    hideAiThinking();
+    addAiMessage('assistant', `Error: ${e.message}`);
+  }
+  setStatus(isListening ? 'listening' : 'idle');
+}
+
+// AI CHAT UI HELPERS
+function addAiMessage(role, text) {
+  const panel = document.getElementById('panel-body');
+  if (currentPanel !== 'ai') return;
+  const msgs = document.getElementById('ai-messages');
+  if (!msgs) return;
+  const thinking = document.getElementById('ai-thinking');
+  if (thinking) thinking.remove();
+
+  const div = document.createElement('div');
+  div.className = `ai-msg-bubble ${role}`;
+
+  // Render code blocks
+  const html = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/```(?:cpp|c\+\+|)?\n?([\s\S]*?)```/g, (_,c)=>`<pre><code>${c.trim()}</code></pre>`)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\n/g,'<br>');
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showAiThinking() {
+  const msgs = document.getElementById('ai-messages');
+  if (!msgs) return;
+  const t = document.createElement('div');
+  t.id = 'ai-thinking';
+  t.className = 'ai-thinking';
+  t.innerHTML = '<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>AI is thinking...</span>';
+  msgs.appendChild(t);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function hideAiThinking() {
+  const t = document.getElementById('ai-thinking');
+  if (t) t.remove();
+}
+
+// PANELS
+function switchPanel(panel, el) {
+  currentPanel = panel;
+  document.querySelectorAll('.panel-tab').forEach(t=>t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.panel-tab').forEach(t => {
+    if (t.textContent.trim().replace('✦ ','') === {ai:'AI Chat',guide:'Commands',snippets:'Snippets',dashboard:'Dashboard'}[panel]) t.classList.add('active');
+  });
+  renderPanel(panel);
+}
+
+function renderPanel(panel) {
+  const body = document.getElementById('panel-body');
+  if (panel==='ai')         body.innerHTML = renderAiPanel();
+  else if (panel==='guide')    body.innerHTML = renderGuidePanel();
+  else if (panel==='snippets') body.innerHTML = renderSnippetsPanel();
+  else if (panel==='dashboard'){ body.innerHTML = renderDashboardPanel(); loadDashboardFiles(); }
+
+  if (panel==='ai') {
+    // Re-render chat history
+    aiChatHistory.forEach(m => addAiMessage(m.role, m.content));
+    const input = document.getElementById('ai-chat-input');
+    if (input) input.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAiChat();} });
+  }
+  if (panel==='settings') {
+    const keyEl = document.getElementById('openai-api-key');
+    if (keyEl) { keyEl.value = localStorage.getItem('vc_openai_apikey')||''; keyEl.addEventListener('input',()=>{ localStorage.setItem('vc_openai_apikey',keyEl.value.trim()); }); }
+  }
+}
+
+function renderAiPanel() {
+  return `
+  <div class="ai-chat-wrap" style="height:100%;display:flex;flex-direction:column;gap:0">
+    <div class="ai-action-bar">
+      <button class="ai-quick-btn" onclick="aiExplainCode()">Explain code</button>
+      <button class="ai-quick-btn" onclick="aiReviewCode()">Review code</button>
+      <button class="ai-quick-btn" onclick="aiCompleteCode()">Complete code</button>
+      <button class="ai-quick-btn" onclick="aiFixErrors()">Fix errors</button>
+    </div>
+    <div class="ai-chat-messages" id="ai-messages" style="flex:1;overflow-y:auto;min-height:0">
+      ${aiChatHistory.length===0 ? `<div style="color:var(--text3);font-size:12px;text-align:center;padding:20px 10px;line-height:1.7">
+        <div style="font-size:22px;margin-bottom:8px">✦</div>
+        Ask anything about C++,<br>your current code, or say<br>"explain this" via voice.
+      </div>` : ''}
+    </div>
+    <div class="ai-input-row">
+      <textarea class="ai-input" id="ai-chat-input" placeholder="Ask AI about your code... (Enter to send)"></textarea>
+      <button class="btn btn-ai btn-sm" onclick="sendAiChat()" style="height:60px;padding:0 12px;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+const COMMANDS = [
+  {trigger:['include iostream','add iostream','include eye o stream'],code:'#include <iostream>\n',desc:'Add iostream'},
+  {trigger:['include string','add string header'],code:'#include <string>\n',desc:'Add string header'},
+  {trigger:['include vector'],code:'#include <vector>\n',desc:'Add vector'},
+  {trigger:['include algorithm'],code:'#include <algorithm>\n',desc:'Add algorithm'},
+  {trigger:['using namespace std','namespace std','using name space std','name space std','using namespace','name space'],code:'using namespace std;\n',desc:'namespace std'},
+  {trigger:['main function','create main','main'],code:'int main() {\n    \n    return 0;\n}\n',desc:'main function'},
+  {trigger:['for loop','create for','4 loop'],code:'for (int i = 0; i < 10; i++) {\n    \n}\n',desc:'For loop'},
+  {trigger:['while loop','create while'],code:'while (condition) {\n    \n}\n',desc:'While loop'},
+  {trigger:['if statement','add if','if condition'],code:'if (condition) {\n    \n}\n',desc:'If statement'},
+  {trigger:['if else'],code:'if (condition) {\n    \n} else {\n    \n}\n',desc:'If-else'},
+  {trigger:['print','cout','print line','console output','print hello'],code:'cout << "Hello, World!" << endl;\n',desc:'Print'},
+  {trigger:['integer variable','add int'],code:'int x = 0;\n',desc:'Int variable'},
+  {trigger:['string variable','declare string'],code:'string str = "";\n',desc:'String variable'},
+  {trigger:['void function','create function'],code:'void myFunction() {\n    \n}\n',desc:'Function'},
+  {trigger:['class','create class'],code:'class MyClass {\npublic:\n    MyClass() {}\n};\n',desc:'Class'},
+  {trigger:['return zero','return 0'],code:'return 0;\n',desc:'Return 0'},
+  {trigger:['comment','add comment'],code:'// comment\n',desc:'Comment'},
+  {trigger:['cin input','get input'],code:'cin >> x;\n',desc:'Read input'},
+];
+
+const GROUPS = [
+  { name:'AI Commands', items:[
+    {trigger:['explain','explain code','explain this'],desc:'AI explains your code'},
+    {trigger:['review','review code','review my code'],desc:'AI reviews code quality'},
+    {trigger:['fix','fix errors','fix the error'],desc:'AI fixes compiler errors'},
+    {trigger:['complete','complete my code','finish my code'],desc:'AI completes code'},
+  ]},
+  { name:'Tab Management', items:[
+    {trigger:['new file','new tab'],action:'newtab',desc:'Open new tab'},
+    {trigger:['close tab'],action:'closetab',desc:'Close current tab'},
+    {trigger:['next tab'],action:'nexttab',desc:'Next tab'},
+    {trigger:['previous tab'],action:'prevtab',desc:'Previous tab'},
+  ]},
+  { name:'Code Snippets (Rule-based)', items: COMMANDS.filter(c=>c.code) },
+];
+
+
+async function loadDashboardFiles(){
+  const el = document.getElementById('cloud-files-list');
+  if(!el) return;
+  if(!currentUser){ el.innerHTML='<div style="color:var(--text3);font-size:11px">Sign in to see cloud files</div>'; return; }
+  const files = await loadCloudFiles();
+  if(!files || !files.length){ el.innerHTML='<div style="color:var(--text3);font-size:11px">No cloud files yet</div>'; return; }
+  el.innerHTML = files.map(f=>`
+    <div class="file-row">
+      <span class="file-row-name" onclick="openCloudFile('${f.id}','${escHtml(f.filename)}',${JSON.stringify(f.code)})" title="Click to open">${escHtml(f.filename)}</span>
+      <span class="file-row-date">${new Date(f.updated_at).toLocaleDateString()}</span>
+      <button class="btn btn-ghost btn-sm" style="padding:2px 6px;margin-left:4px;color:var(--red)" onclick="deleteCloudFile(${f.id})" title="Delete">✕</button>
+    </div>`).join('');
+}
+
+async function shareAndShowLink(){
+  const url = await shareCode();
+  const box = document.getElementById('share-link-box');
+  if(url && box){ box.style.display='block'; box.innerHTML=`<div class="share-box" onclick="navigator.clipboard.writeText('${url}');showToast('success','Copied!')">${url}<br><span style="font-size:9px;color:var(--text3)">Click to copy</span></div>`; }
+}
+
+function renderGuidePanel() {
+  return GROUPS.map(g=>`
+    <div class="cmd-guide-section">
+      <div class="cmd-guide-title">${g.name}</div>
+      ${g.items.map(c=>`
+        <div class="cmd-card" ${c.code?`onclick="insertCode(${JSON.stringify(c.code)})"`:''}>
+          <div class="cmd-voice">"${c.trigger[0]}"</div>
+          <div class="cmd-desc">${c.desc}</div>
+          ${c.code?`<div class="cmd-output">${escHtml(c.code.trim().substring(0,50))}${c.code.trim().length>50?'...':''}</div>`:''}
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+const SNIPPETS = [
+  {name:'Hello World',code:`#include <iostream>\nusing namespace std;\nint main() {\n    cout << "Hello, World!" << endl;\n    return 0;\n}`},
+  {name:'Read Input',code:`int n;\ncin >> n;\ncout << "You entered: " << n << endl;`},
+  {name:'For Loop',code:`for (int i = 0; i < 10; i++) {\n    cout << i << endl;\n}`},
+  {name:'Vector + Sort',code:`#include <vector>\n#include <algorithm>\nvector<int> v = {3,1,4,1,5};\nsort(v.begin(), v.end());`},
+  {name:'String Split',code:`#include <sstream>\nstring s = "hello world";\nstringstream ss(s);\nstring word;\nwhile(ss >> word) cout << word << endl;`},
+  {name:'File Read',code:`#include <fstream>\nifstream file("data.txt");\nstring line;\nwhile(getline(file, line)) cout << line << endl;\nfile.close();`},
+];
+
+function renderSnippetsPanel() {
+  return SNIPPETS.map(s=>`
+    <div class="snippet-card" onclick="insertCode(${JSON.stringify(s.code+'\n')})">
+      <div class="snippet-name">${s.name}</div>
+      <div class="snippet-code">${escHtml(s.code)}</div>
+    </div>`).join('');
+}
+
+
+
+function processFallbackCommand(raw, confidence) {
+  const input = raw.toLowerCase().trim().replace(/name space/g,'namespace').replace(/i o stream/g,'iostream').replace(/c out/g,'cout').replace(/c in/g,'cin');
+  let matched = null;
+  for (const cmd of COMMANDS) {
+    for (const t of cmd.trigger) {
+      if (input.includes(t)) { matched = cmd; break; }
+    }
+    if (matched) break;
+  }
+  // Check action commands
+  const actionMap = {
+    'new file':['new file','new tab','open new'],'closetab':['close tab'],'nexttab':['next tab'],'prevtab':['previous tab','prev tab'],
+    'compile':['compile','run code','execute','build'],'undo':['undo'],'clear':['clear','clear code'],
+  };
+  if (!matched) {
+    for (const [act, triggers] of Object.entries(actionMap)) {
+      if (triggers.some(t=>input.includes(t))) {
+        if (act==='new file') addNewTab();
+        else if (act==='closetab') closeTab(null,activeTabId);
+        else if (act==='nexttab') navigateTab(1);
+        else if (act==='prevtab') navigateTab(-1);
+        else if (act==='compile') compileCode();
+        else if (act==='undo') undoLast();
+        else if (act==='clear') clearActiveTab();
+        addCmdToHistory(raw, true, confidence, false);
+        return;
+      }
+    }
+  }
+  setTimeout(()=>{
+    if (matched) {
+      insertCode(matched.code);
+      addCmdToHistory(raw, true, confidence, false);
+      if (echoCommands) addLog('info', `> ${raw}`);
+      speak('Done', false);
+    } else {
+      addCmdToHistory(raw, false, confidence, false);
+      addLog('warn', `Unknown: "${raw}"`);
+      showToast('error', 'Command not recognized — try AI mode');
+      speak('Command not recognized', false);
+    }
+    setStatus(isListening ? 'listening' : 'idle');
+    document.getElementById('transcript').innerHTML = '<span class="transcript-placeholder">Say a command...</span>';
+    document.getElementById('transcript-badge').style.display = 'none';
+  }, 200);
+}
+
+// SPEECH RECOGNITION  — enhanced Web Speech API
+
+// Spoken punctuation normalization 
+function normalizePunctuation(text) {
+  let out = text;
+  for (const [spoken, sym] of Object.entries(SPOKEN_PUNCTUATION)) {
+    out = out.replace(new RegExp(spoken, 'gi'), sym);
+  }
+  return out;
+}
+
+//  Text-to-Speech feedback 
+function speak(text, urgent=false) {
+  if (!ttsEnabled || !ttsSupported) return;
+  if (urgent) window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = recognitionLang;
+  utt.rate = 1.1;
+  utt.pitch = 1.0;
+  utt.volume = 0.75;
+  // Prefer a natural-sounding voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const pref = voices.find(v => v.lang.startsWith('en') && /natural|google|samantha|karen|moira/i.test(v.name));
+  if (pref) utt.voice = pref;
+  window.speechSynthesis.speak(utt);
+}
+
+// Noise gate check if current volume is above threshold 
+function isAboveNoiseGate() {
+  if (!analyser) return true; // can't measure, let through
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(buf);
+  let sum = 0;
+  for (let i = 0; i < buf.length; i++) sum += Math.abs(buf[i] - 128);
+  const level = sum / buf.length / 128;
+  volumeHistory.push(level);
+  if (volumeHistory.length > 10) volumeHistory.shift();
+  const avg = volumeHistory.reduce((a,b)=>a+b,0) / volumeHistory.length;
+  return avg > noiseGateLevel;
+}
+
+//Recognition factory
+function buildRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = recognitionLang;
+  r.maxAlternatives = 3; // grab top 3 for better accuracy
+  return r;
+}
+
+//All recognition event handlers
+function attachRecognitionHandlers(r) {
+
+  r.onstart = () => {
+    restartAttempts = 0;
+    restartDelay = 150;
+    setStatus('listening');
+    addLog('info', `🎙 Recognition started [${recognitionLang}]`);
+  };
+
+  r.onaudiostart = () => { startAudioContext(); };
+
+  r.onsoundstart = () => {
+    // Clear "no speech" placeholder when sound is detected
+    clearTimeout(noSpeechTimer);
+  };
+
+  r.onspeechstart = () => {
+    clearTimeout(noSpeechTimer);
+    document.getElementById('transcript-badge').style.display = 'inline-block';
+    addLog('info', '🔊 Speech detected');
+  };
+
+  r.onresult = (event) => {
+    let interim = '';
+    let finalText = '';
+    let bestConfidence = 0;
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+
+      if (result.isFinal) {
+        // Pick best alternative above noise gate threshold
+        let best = result[0];
+        for (let j = 1; j < result.length; j++) {
+          if (result[j].confidence > best.confidence) best = result[j];
+        }
+        if (!isAboveNoiseGate()) {
+          addLog('info', '🔇 Noise gate filtered low-volume input');
+          continue;
+        }
+        const normalized = normalizePunctuation(best.transcript);
+        finalText += normalized;
+        bestConfidence = Math.max(bestConfidence, best.confidence);
+        updateConfidence(best.confidence);
+      } else {
+        // Show interim with animated cursor
+        interim += normalizePunctuation(result[0].transcript);
+      }
+    }
+
+    const display = finalText || interim;
+    if (display) {
+      const transcriptEl = document.getElementById('transcript');
+      if (interim && !finalText) {
+        // Show interim in muted style with blinking cursor
+        transcriptEl.innerHTML = `<span style="color:var(--text3)">${escHtml(interim)}</span><span style="animation:pulse-dot 0.8s infinite;display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-left:4px;vertical-align:middle"></span>`;
+      } else if (finalText) {
+        transcriptEl.textContent = finalText;
+      }
+      document.getElementById('transcript-badge').style.display = finalText ? 'none' : 'inline-block';
+    }
+
+    if (finalText.trim()) {
+      // Dedup: ignore if same as last command within 1.5s
+      if (finalText.trim() === lastFinalTranscript) return;
+      lastFinalTranscript = finalText.trim();
+      setTimeout(() => { lastFinalTranscript = ''; }, 1500);
+
+      setStatus('processing');
+      if (pushToTalk && !pttActive) return; // PTT: ignore if button released
+      processVoiceCommand(finalText.trim(), bestConfidence);
+    }
+  };
+
+  r.onspeechend = () => {
+    clearTimeout(noSpeechTimer);
+    noSpeechTimer = setTimeout(() => {
+      if (isListening) {
+        document.getElementById('transcript').innerHTML = '<span class="transcript-placeholder">Say a command...</span>';
+        document.getElementById('transcript-badge').style.display = 'none';
+        updateConfidence(0);
+        interimTranscriptBuffer = '';
+      }
+    }, 2500);
+  };
+
+  r.onerror = (event) => {
+    const errorMessages = {
+      'audio-capture': '⚠ No microphone found. Check your audio input.',
+      'not-allowed': '🚫 Microphone access denied. Allow it in browser settings.',
+      'network': '📡 Network error. Check your connection.',
+      'language-not-supported': `⚠ Language "${recognitionLang}" is not supported.`,
+      'service-not-allowed': '🚫 Speech service not allowed.',
+      'bad-grammar': '⚠ Grammar error in recognition config.',
+    };
+    // Silently ignore non-critical transient errors
+    if (['no-speech', 'aborted'].includes(event.error)) return;
+
+    const msg = errorMessages[event.error] || `Speech error: ${event.error}`;
+    showBanner('warn', msg);
+    showToast('error', msg.replace(/^[^\s]+ /, ''));
+    addLog('error', '🎙 Speech API: ' + event.error);
+
+    if (['not-allowed', 'audio-capture', 'service-not-allowed'].includes(event.error)) {
+      stopListening();
+      document.getElementById('perm-btn')?.classList.add('show');
+    }
+  };
+
+  r.onend = () => {
+    if (!isListening) { setStatus('idle'); return; }
+    // Exponential backoff restart to avoid hammering the API
+    if (restartAttempts >= maxRestartAttempts) {
+      addLog('error', '🎙 Recognition failed to restart after multiple attempts.');
+      showToast('error', 'Recognition stopped. Click mic to retry.');
+      stopListening();
+      return;
+    }
+    const delay = Math.min(restartDelay * Math.pow(1.5, restartAttempts), 3000);
+    restartAttempts++;
+    clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = setTimeout(() => {
+      if (!isListening) return;
+      try {
+        r.start();
+      } catch(e) {
+        // If old instance errors, create fresh recognition
+        recognition = buildRecognition();
+        attachRecognitionHandlers(recognition);
+        try { recognition.start(); } catch(e2) { stopListening(); }
+      }
+    }, delay);
+  };
+}
+
+function toggleMic() { isListening ? stopListening() : startListening(); }
+
+function startListening() {
+  if (!speechSupported) { showToast('error', 'Speech recognition not supported. Use Chrome or Edge.'); return; }
+  if (isListening) return;
+  isListening = true;
+  hideBanner();
+  restartAttempts = 0;
+  restartDelay = 150;
+  volumeHistory = [];
+  recognition = buildRecognition();
+  attachRecognitionHandlers(recognition);
+  try {
+    recognition.start();
+  } catch(e) {
+    showToast('error', 'Could not start mic: ' + e.message);
+    isListening = false;
+    return;
+  }
+  document.getElementById('mic-btn').classList.add('active');
+  document.getElementById('mic-state').textContent = pushToTalk ? 'Hold Space to speak' : 'Listening...';
+  document.getElementById('mic-state').classList.add('active');
+  showToast('info', '🎙 Microphone active');
+  speak(pushToTalk ? 'Push to talk mode ready' : 'Listening', false);
+}
+
+function stopListening() {
+  isListening = false;
+  pttActive = false;
+  clearTimeout(noSpeechTimer);
+  clearTimeout(recognitionRestartTimer);
+  if (recognition) { try { recognition.abort(); } catch(e) {} recognition = null; }
+  stopAudioContext();
+  setStatus('idle');
+  updateConfidence(0);
+  volumeHistory = [];
+  document.getElementById('mic-btn').classList.remove('active');
+  document.getElementById('mic-state').textContent = 'Click to start listening';
+  document.getElementById('mic-state').classList.remove('active');
+  document.getElementById('transcript').innerHTML = '<span class="transcript-placeholder">Say a command...</span>';
+  document.getElementById('transcript-badge').style.display = 'none';
+  drawIdleWaveform();
+  speak('Microphone off', false);
+}
+
+function setRecognitionLang(lang) {
+  recognitionLang = lang;
+  addLog('info', `🌐 Language set to ${lang}`);
+  if (isListening) { stopListening(); setTimeout(startListening, 400); }
+}
+
+// Push-to-Talk keyboard shortcut (Space bar) 
+document.addEventListener('keydown', (e) => {
+  // Only activate PTT when Space is held AND we're not typing in an input/textarea
+  if (!pushToTalk || !isListening) return;
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.code === 'Space' && !pttActive) {
+    e.preventDefault();
+    pttActive = true;
+    document.getElementById('mic-state').textContent = '🎙 Speaking...';
+    document.getElementById('mic-state').classList.add('active');
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (!pushToTalk) return;
+  if (e.code === 'Space' && pttActive) {
+    pttActive = false;
+    document.getElementById('mic-state').textContent = 'Hold Space to speak';
+  }
+});
+// Mic toggle shortcut: Ctrl+M
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.code === 'KeyM' && !['INPUT','TEXTAREA'].includes(e.target.tagName)) {
+    e.preventDefault();
+    toggleMic();
+  }
+});
+
+async function requestMicPermission() {
+  try { await navigator.mediaDevices.getUserMedia({audio:true}); micPermission='granted'; document.getElementById('perm-btn').classList.remove('show'); showToast('success','Mic permission granted'); } catch(e){ micPermission='denied'; showBanner('error','🚫 Mic permission denied.'); }
+}
+
+// AUDIO CONTEXT / WAVEFORM
+async function startAudioContext(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    micPermission='granted';
+    document.getElementById('perm-btn').classList.remove('show');
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    analyser=audioCtx.createAnalyser(); analyser.fftSize=256; analyser.smoothingTimeConstant=0.8;
+    const src=audioCtx.createMediaStreamSource(micStream); src.connect(analyser);
+    drawLiveWaveform();
+  }catch(e){addLog('warn','AudioContext: '+e.message);drawIdleWaveform();}
+}
+function stopAudioContext(){
+  cancelAnimationFrame(animFrameId);
+  if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
+  if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null;} analyser=null;
+}
+function getCanvasColors(){return isDark?{bar:'rgba(124,109,250,0.9)',bg:'#18181f'}:{bar:'rgba(91,77,232,0.9)',bg:'#ededf4'};}
+function drawIdleWaveform(){
+  cancelAnimationFrame(animFrameId);
+  const canvas=document.getElementById('waveform-canvas');
+  if(!canvas) return;
+  const W=canvas.offsetWidth||216,H=50; canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d'); const{bg,bar}=getCanvasColors();
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H); ctx.strokeStyle=bar; ctx.lineWidth=1.5; ctx.globalAlpha=0.3;
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke(); ctx.globalAlpha=1;
+}
+function drawLiveWaveform(){
+  const canvas=document.getElementById('waveform-canvas'); if(!canvas) return;
+  const W=canvas.offsetWidth||216,H=50; canvas.width=W; canvas.height=H;
+  const bufLen=analyser.frequencyBinCount;
+  const timeData=new Uint8Array(bufLen),freqData=new Uint8Array(bufLen);
+  function draw(){
+    animFrameId=requestAnimationFrame(draw); if(!analyser) return;
+    analyser.getByteTimeDomainData(timeData); analyser.getByteFrequencyData(freqData);
+    const{bg,bar}=getCanvasColors(); const ctx=canvas.getContext('2d');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+    ctx.lineWidth=2; ctx.strokeStyle=bar; ctx.beginPath();
+    const sw=W/bufLen; let x=0;
+    for(let i=0;i<bufLen;i++){const v=timeData[i]/128,y=(v*H)/2;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);x+=sw;}
+    ctx.lineTo(W,H/2); ctx.stroke();
+    const bw=(W/(bufLen/4))-1; ctx.globalAlpha=0.35;
+    for(let i=0;i<bufLen/4;i++){const bh=(freqData[i]/255)*H*0.5;const hue=250+(i/(bufLen/4))*60;ctx.fillStyle=`hsl(${hue},80%,65%)`;ctx.fillRect(i*(bw+1),H-bh,bw,bh);}
+    ctx.globalAlpha=1;
+    let sum=0; for(let i=0;i<bufLen;i++) sum+=Math.abs(timeData[i]-128);
+    const vf=document.getElementById('vol-fill'); if(vf) vf.style.width=Math.min(100,(sum/bufLen)*3)+'%';
+  }
+  draw();
+}
+function updateConfidence(val){
+  const fill=document.getElementById('confidence-fill'),pctEl=document.getElementById('confidence-pct');
+  if(!fill||!pctEl) return;
+  const pv=Math.round(val*100);
+  fill.style.width=pv+'%';
+  fill.style.background=val>0.8?'linear-gradient(90deg,#10b981,#22d3a0)':val>0.5?'linear-gradient(90deg,#f59e0b,#fbbf24)':'linear-gradient(90deg,#ef4444,#f87171)';
+  pctEl.textContent=val>0?pv+'%':'—';
+}
+
+// TABS
+function getActiveTab(){return tabs.find(t=>t.id===activeTabId)||tabs[0];}
+function renderTabs(){
+  const area=document.getElementById('tabs-scroll-area');
+  if(!area) return;
+  area.innerHTML=tabs.map(t=>`
+    <div class="file-tab ${t.id===activeTabId?'active':''}" id="tab-${t.id}"
+      onclick="switchToTab(${t.id})" ondblclick="openRenameModal(${t.id})" oncontextmenu="openTabCtxMenu(event,${t.id})"
+      draggable="true" ondragstart="onTabDragStart(event,${t.id})" ondragover="onTabDragOver(event,${t.id})" ondrop="onTabDrop(event,${t.id})" ondragleave="onTabDragLeave(event)">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:0.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      <span class="tab-name" title="${escHtml(t.name)}">${escHtml(t.name)}</span>
+      <div class="file-dot ${t.modified?'show':''}"></div>
+      <div class="tab-close" onclick="closeTab(event,${t.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>`).join('');
+  const ae=document.getElementById('tab-'+activeTabId);
+  if(ae) ae.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});
+}
+function switchToTab(id){saveActiveEditorState();activeTabId=id;loadTabIntoEditor(id);renderTabs();}
+function addNewTab(name,code){
+  saveActiveEditorState();
+  const nid=tabIdCounter++; const nm=name||`file${nid}.cpp`;
+  tabs.push({id:nid,name:nm,code:code||DEFAULT_CODE,modified:!!code,undoStack:[],scrollTop:0,cursorStart:0,cursorEnd:0});
+  activeTabId=nid; loadTabIntoEditor(nid); renderTabs(); showToast('info',`Opened ${nm}`);
+  document.getElementById('code-editor')?.focus();
+}
+function closeTab(e,id){
+  if(e) e.stopPropagation();
+  if(tabs.length===1){showToast('warn','Cannot close last tab');return;}
+  const idx=tabs.findIndex(t=>t.id===id); tabs.splice(idx,1);
+  if(activeTabId===id) activeTabId=tabs[Math.max(0,idx-1)].id;
+  loadTabIntoEditor(activeTabId); renderTabs();
+}
+function navigateTab(dir){
+  const idx=tabs.findIndex(t=>t.id===activeTabId);
+  switchToTab(tabs[(idx+dir+tabs.length)%tabs.length].id);
+}
+function clearActiveTab(){
+  const tab=getActiveTab(); tab.undoStack.push(tab.code);
+  document.getElementById('code-editor').value=''; tab.code=''; tab.modified=true;
+  updateLineNumbers(); renderTabs(); showToast('info','Editor cleared');
+}
+function markActiveModified(){const t=getActiveTab();if(t){t.modified=true;renderTabs();}}
+function undoLast(){
+  const tab=getActiveTab();
+  if(tab&&tab.undoStack.length){document.getElementById('code-editor').value=tab.undoStack.pop();tab.code=document.getElementById('code-editor').value;updateLineNumbers();showToast('info','Undo');}
+  else showToast('error','Nothing to undo');
+}
+function duplicateTab(id){
+  const tab=tabs.find(t=>t.id===id); if(!tab) return;
+  addNewTab('copy_'+tab.name, tab.code);
+}
+
+// Rename
+let renameTargetId = null;
+function openRenameModal(id){ renameTargetId=id; const t=tabs.find(x=>x.id===id); document.getElementById('rename-input').value=t?t.name:''; document.getElementById('rename-modal').classList.add('show'); setTimeout(()=>document.getElementById('rename-input').select(),50); }
+function confirmRename(){ const v=document.getElementById('rename-input').value.trim(); if(v&&renameTargetId){const t=tabs.find(x=>x.id===renameTargetId);if(t){t.name=v;renderTabs();}} document.getElementById('rename-modal').classList.remove('show'); }
+
+// Drag
+let dragSrcId=null;
+function onTabDragStart(e,id){dragSrcId=id;e.dataTransfer.effectAllowed='move';}
+function onTabDragOver(e,id){e.preventDefault();e.dataTransfer.dropEffect='move';if(id!==dragSrcId)document.getElementById('tab-'+id)?.classList.add('drag-over');}
+function onTabDragLeave(e){e.currentTarget?.classList.remove('drag-over');}
+function onTabDrop(e,id){
+  e.preventDefault(); document.querySelectorAll('.file-tab').forEach(t=>t.classList.remove('drag-over'));
+  if(dragSrcId===null||dragSrcId===id) return;
+  const si=tabs.findIndex(t=>t.id===dragSrcId),di=tabs.findIndex(t=>t.id===id);
+  const [t]=tabs.splice(si,1); tabs.splice(di,0,t); dragSrcId=null; renderTabs();
+}
+
+// Context menu
+function openTabCtxMenu(e,id){
+  e.preventDefault(); ctxTargetTabId=id;
+  const m=document.getElementById('tab-ctx-menu');
+  m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px'; m.classList.add('show');
+}
+document.addEventListener('click',()=>{
+  document.getElementById('tab-ctx-menu')?.classList.remove('show');
+  document.getElementById('user-menu')?.classList.remove('show');
+});
+function ctxRenameTab(){openRenameModal(ctxTargetTabId);}
+function ctxSaveTab(){switchToTab(ctxTargetTabId);saveFileToPC();}
+function ctxDuplicateTab(){duplicateTab(ctxTargetTabId);}
+function ctxCloseTab(){closeTab(null,ctxTargetTabId);}
+
+// File I/O
+function saveFileToPC(){
+  saveActiveEditorState();
+  const tab=getActiveTab();
+  const blob=new Blob([tab.code],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=tab.name; a.click(); URL.revokeObjectURL(a.href);
+  tab.modified=false; renderTabs(); showToast('success',`Saved ${tab.name}`);
+}
+function loadFileFromPC(){document.getElementById('file-load-input').click();}
+function handleFileLoad(e){
+  const files=Array.from(e.target.files); if(!files.length) return;
+  files.forEach(f=>{ const r=new FileReader(); r.onload=ev=>addNewTab(f.name,ev.target.result); r.readAsText(f); });
+  e.target.value='';
+}
+
+// Line numbers
+function updateLineNumbers(){
+  const ed=document.getElementById('code-editor'),ln=document.getElementById('line-numbers'); if(!ed||!ln) return;
+  const lines=ed.value.split('\n').length;
+  ln.innerHTML=Array.from({length:lines},(_,i)=>`<div style="padding:0 12px 0 0;line-height:1.6">${i+1}</div>`).join('');
+  ln.scrollTop=ed.scrollTop;
+}
+
+// Editor tab key
+function handleEditorTab(e){
+  if(e.key==='Tab'){e.preventDefault();const ed=e.target;const s=ed.selectionStart,en=ed.selectionEnd;ed.value=ed.value.substring(0,s)+'    '+ed.value.substring(en);ed.selectionStart=ed.selectionEnd=s+4;updateLineNumbers();}
+  if(e.ctrlKey&&e.key==='s'){e.preventDefault();saveFileToPC();}
+  if(e.ctrlKey&&e.key==='t'){e.preventDefault();addNewTab();}
+}
+
+// Text command
+function handleTextCmd(e){if(e.key==='Enter')executeTextCmd();}
+function executeTextCmd(){const inp=document.getElementById('text-cmd');const v=inp.value.trim();if(!v)return;processVoiceCommand(v,null);inp.value='';}
+
+// Command history
+function addCmdToHistory(text,ok,confidence,isAi=false){
+  commandHistory.unshift({text,ok,confidence,time:new Date().toLocaleTimeString(),isAi});
+  renderCmdHistory();
+}
+function renderCmdHistory(){
+  const list=document.getElementById('cmd-list'); if(!list) return;
+  if(!commandHistory.length){list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:11px;font-family:var(--mono)">No commands yet</div>';return;}
+  list.innerHTML=commandHistory.slice(0,30).map(c=>`
+    <div class="cmd-item">
+      <div class="cmd-icon ${c.isAi?'ai-ok':c.ok?'ok':'err'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+          ${c.ok?'<polyline points="20 6 9 17 4 12"/>':'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}
+        </svg>
+      </div>
+      <div class="cmd-text">${escHtml(c.text)}${c.isAi?' ✦':''}</div>
+      ${c.confidence?`<div class="cmd-conf">${Math.round(c.confidence*100)}%</div>`:''}
+      <div class="cmd-time">${c.time}</div>
+    </div>`).join('');
+}
+// COMPILE
+
+async function simulateCompile(code){
+  await new Promise(r=>setTimeout(r,900));
+  const errors=[];
+  if(!code.includes('main(')) errors.push('error: undefined reference to `main\'');
+  if(code.includes('cout')&&!code.includes('iostream')) errors.push('warning: implicit use of cout without #include <iostream>');
+  if(errors.filter(e=>e.startsWith('error')).length) return{success:false,errors};
+  const coutM=[...code.matchAll(/cout\s*<<\s*"([^"]+)"/g)];
+  const output=coutM.length?coutM.map(m=>m[1]).join('\n'):'Program executed (no output)';
+  return{success:true,output};
+}
+
+async function jdoodleCompile(code){
+  const cid=(document.getElementById('jd-client')||{}).value||'';
+  const sec=(document.getElementById('jd-secret')||{}).value||'';
+  if(!cid||!sec) throw new Error('JDoodle credentials missing');
+  const res=await fetch('https://api.jdoodle.com/v1/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:cid,clientSecret:sec,script:code,language:'cpp17',versionIndex:'0'})});
+  if(!res.ok) throw new Error('JDoodle '+res.status);
+  const d=await res.json();
+  if(d.error) return{success:false,errors:[d.error]};
+  return d.output?.toLowerCase().includes('error:')?{success:false,errors:[d.output]}:{success:true,output:d.output||''};
+}
+
+async function paizaCompile(code){
+  const cr=await fetch('https://api.paiza.io/runners/create?source_code='+encodeURIComponent(code)+'&language=cpp&api_key=guest',{method:'POST'});
+  if(!cr.ok) throw new Error('Paiza '+cr.status);
+  const id=(await cr.json()).id;
+  await new Promise(r=>setTimeout(r,2500));
+  const gr=await fetch('https://api.paiza.io/runners/get_details?id='+id+'&api_key=guest');
+  if(!gr.ok) throw new Error('Paiza '+gr.status);
+  const d=await gr.json();
+  return d.build_result==='failure'?{success:false,errors:[d.build_stderr||'Build failed']}:{success:true,output:d.stdout||'(no output)'};
+}
+
+// OUTPUT
+
+function switchOutputTab(tab,el){
+  currentOutputTab=tab;
+  document.querySelectorAll('.output-tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const content=document.getElementById('output-content'); if(!content) return;
+  const lines=outputLines[tab]||[];
+  content.innerHTML=lines.length?lines.map(renderOutLine).join(''):`<div class="out-line"><span class="val" style="color:var(--text3)">No ${tab} yet.</span></div>`;
+}
+function addLog(type,msg){
+  const bucket={success:'output',error:'errors',warn:'logs',info:'logs'}[type]||'logs';
+  outputLines[bucket]=outputLines[bucket]||[]; outputLines[bucket].push({type,msg});
+  if(bucket===currentOutputTab){const c=document.getElementById('output-content');if(c){c.innerHTML+=renderOutLine({type,msg});c.scrollTop=c.scrollHeight;}}
+}
+function renderOutLine(e){
+  const cls={success:'success',error:'error',warn:'warn',info:'info','ai-msg':'ai-msg'}[e.type]||'';
+  return `<div class="out-line ${cls}"><span class="prompt">&gt;</span><span class="val">${escHtml(e.msg)}</span></div>`;
+}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// STATUS / TOAST / BANNER
+
+function setStatus(s){
+  const d=document.getElementById('status-dot'),l=document.getElementById('status-label'); if(!d||!l) return;
+  d.className='status-dot '+s;
+  l.textContent=s==='ai'?'AI thinking...':s;
+}
+function showToast(type,msg){
+  const wrap=document.getElementById('toast-wrap');
+  const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg;
+  wrap.appendChild(t); setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3000);
+}
+function showBanner(type,msg){const b=document.getElementById('banner');b.className='banner show '+type;document.getElementById('banner-msg').textContent=msg;}
+function hideBanner(){document.getElementById('banner').className='banner';}
+function openLink(url){window.open(url,'_blank');}
+
+// THEME
+
+
+function toggleSettingsDrawer() {
+  const drawer = document.getElementById('settings-drawer');
+  const overlay = document.getElementById('settings-overlay');
+  const btn = document.getElementById('settings-topbar-btn');
+  const isOpen = drawer.style.display !== 'none';
+  drawer.style.display = isOpen ? 'none' : 'block';
+  overlay.style.display = isOpen ? 'none' : 'block';
+  btn.style.background = isOpen ? '' : 'var(--bg4)';
+  if (!isOpen) {
+    const body = document.getElementById('settings-drawer-body');
+    body.innerHTML = renderSettingsPanel();
+    const keyEl = document.getElementById('openai-api-key');
+    if (keyEl) {
+      keyEl.value = localStorage.getItem('vc_openai_apikey') || '';
+      keyEl.addEventListener('change', () => {
+        localStorage.setItem('vc_openai_apikey', keyEl.value.trim());
+        showToast('success', 'API key saved');
+      });
+    }
+  }
+}
+
+// NAVIGATION
+
+function showLanding(){
+  document.getElementById('landing-page').style.display='block';
+  document.getElementById('app-page').style.display='none';
+  document.getElementById('nav-pills').style.display='none';
+}
+function showEditor(){
+  document.getElementById('landing-page').style.display='none';
+  document.getElementById('app-page').style.display='block';
+  document.getElementById('nav-pills').style.display='flex';
+  requestAnimationFrame(()=>{ updateLineNumbers(); drawIdleWaveform(); renderTabs(); renderPanel(currentPanel); });
+}
+function guardedShowEditor(){
+  if(currentUser) showEditor();
+  else { openAuthModal('signin'); showToast('warn','Sign in to access the IDE'); }
+}
+
+// AUTH — Microsoft SQL Server via REST API
+const API_BASE = 'https://voicecoder-production.up.railway.app';
+
+/* ── Token helpers (localStorage stores JWT only, no passwords) ── */
+function authSaveToken(token){ localStorage.setItem('vc_token', token); }
+function authGetToken(){ return localStorage.getItem('vc_token') || null; }
+function authClearToken(){ localStorage.removeItem('vc_token'); }
+
+/* Modal helpers */
+function openAuthModal(tab='signin'){document.getElementById('auth-backdrop').classList.add('show');switchAuthTab(tab);}
+function closeAuthModal(){document.getElementById('auth-backdrop').classList.remove('show');clearAuthFields();}
+function onAuthBackdropClick(e){if(e.target===document.getElementById('auth-backdrop'))closeAuthModal();}
+function switchAuthTab(tab){
+  const si=tab==='signin';
+  document.getElementById('auth-signin-form').style.display=si?'block':'none';
+  document.getElementById('auth-signup-form').style.display=si?'none':'block';
+  document.getElementById('auth-tab-signin').classList.toggle('active',si);
+  document.getElementById('auth-tab-signup').classList.toggle('active',!si);
+  clearAuthErrors();
+}
+function clearAuthErrors(){['si-email-err','si-pass-err','si-general-err','su-name-err','su-email-err','su-pass-err','su-confirm-err','su-general-err'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='';});document.querySelectorAll('.auth-input').forEach(e=>e.classList.remove('error'));}
+function clearAuthFields(){['si-email','si-password','su-name','su-email','su-password','su-confirm'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});clearAuthErrors();}
+function setErr(fid,eid,msg){const f=document.getElementById(fid),e=document.getElementById(eid);if(f)f.classList.add('error');if(e)e.textContent=msg;}
+function togglePwd(id,btn){const i=document.getElementById(id);const s=i.type==='password';i.type=s?'text':'password';btn.style.color=s?'var(--accent2)':'var(--text3)';}
+function toggleUserMenu(e){e.stopPropagation();document.getElementById('user-menu').classList.toggle('show');}
+
+/* Set loading state on auth submit button */
+function setAuthBtnLoading(formId, loading){
+  const btn = document.querySelector(`#${formId} .auth-submit`);
+  if(!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? 'Please wait…' : (formId==='auth-signin-form' ? 'Sign In' : 'Create Account');
+}
+
+/*  SIGN IN */
+async function doSignIn(){
+  clearAuthErrors();
+  const email = document.getElementById('si-email').value.trim();
+  const pass  = document.getElementById('si-password').value;
+  let ok = true;
+  if(!email){setErr('si-email','si-email-err','Email required');ok=false;}
+  else if(!/\S+@\S+\.\S+/.test(email)){setErr('si-email','si-email-err','Invalid email');ok=false;}
+  if(!pass){setErr('si-password','si-pass-err','Password required');ok=false;}
+  if(!ok) return;
+
+  setAuthBtnLoading('auth-signin-form', true);
+  try {
+    const res  = await fetch(`${API_BASE}/auth/signin`, {
+      method:  'POST',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({ email, password: pass }),
+    });
+    const data = await res.json();
+
+    if(!res.ok){
+      if(data.field==='email')   setErr('si-email','si-general-err', data.error);
+      else if(data.field==='password') setErr('si-password','si-pass-err', data.error);
+      else { const el=document.getElementById('si-general-err'); if(el) el.textContent=data.error||'Sign in failed'; }
+      return;
+    }
+
+    authSaveToken(data.token);
+    currentUser = data.user;
+    applyLoggedIn();
+    closeAuthModal();
+    showToast('success', `Welcome back, ${data.user.name}!`);
+
+  } catch(err){
+    const el=document.getElementById('si-general-err');
+    if(el) el.textContent='Cannot reach server. Is the backend running?';
+    console.error('Sign-in fetch error:', err);
+  } finally {
+    setAuthBtnLoading('auth-signin-form', false);
+  }
+}
+
+/* SIGN UP */
+async function doSignUp(){
+  clearAuthErrors();
+  const name    = document.getElementById('su-name').value.trim();
+  const email   = document.getElementById('su-email').value.trim();
+  const pass    = document.getElementById('su-password').value;
+  const confirm = document.getElementById('su-confirm').value;
+  let ok = true;
+  if(!name)  {setErr('su-name','su-name-err','Name required');ok=false;}
+  if(!email) {setErr('su-email','su-email-err','Email required');ok=false;}
+  else if(!/\S+@\S+\.\S+/.test(email)){setErr('su-email','su-email-err','Invalid email');ok=false;}
+  if(!pass)  {setErr('su-password','su-pass-err','Password required');ok=false;}
+  else if(pass.length<6){setErr('su-password','su-pass-err','Min. 6 characters');ok=false;}
+  if(pass && confirm!==pass){setErr('su-confirm','su-confirm-err','Passwords do not match');ok=false;}
+  if(!ok) return;
+
+  setAuthBtnLoading('auth-signup-form', true);
+  try {
+    const res  = await fetch(`${API_BASE}/auth/signup`, {
+      method:  'POST',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({ name, email, password: pass }),
+    });
+    const data = await res.json();
+
+    if(!res.ok){
+      if(data.field==='name')    setErr('su-name','su-name-err', data.error);
+      else if(data.field==='email')    setErr('su-email','su-email-err', data.error);
+      else if(data.field==='password') setErr('su-password','su-pass-err', data.error);
+      else { const el=document.getElementById('su-general-err'); if(el) el.textContent=data.error||'Sign up failed'; }
+      return;
+    }
+
+    authSaveToken(data.token);
+    currentUser = data.user;
+    applyLoggedIn();
+    closeAuthModal();
+    showToast('success', `Welcome, ${data.user.name}!`);
+
+  } catch(err){
+    const el=document.getElementById('su-general-err');
+    if(el) el.textContent='Cannot reach server. Is the backend running?';
+    console.error('Sign-up fetch error:', err);
+  } finally {
+    setAuthBtnLoading('auth-signup-form', false);
+  }
+}
+
+/* SIGN OUT */
+async function doSignOut(){
+  const token = authGetToken();
+  if(token){
+    try {
+      await fetch(`${API_BASE}/auth/signout`, {
+        method:  'POST',
+        headers: {'Authorization': `Bearer ${token}`},
+      });
+    } catch(e){ /* best-effort */ }
+  }
+  authClearToken();
+  currentUser = null;
+  document.getElementById('auth-area').style.display='flex';
+  document.getElementById('user-area').style.display='none';
+  showLanding();
+  showToast('info','Signed out');
+}
+
+/*  Restore session on page load via /auth/me */
+async function tryRestoreSession(){
+  const token = authGetToken();
+  if(!token) return;
+  try {
+    const res  = await fetch(`${API_BASE}/auth/me`, {
+      headers: {'Authorization': `Bearer ${token}`},
+    });
+    if(res.ok){
+      const data = await res.json();
+      currentUser = data.user;
+      applyLoggedIn();
+    } else {
+      authClearToken(); // token expired 
+    }
+  } catch(e){
+    console.warn('Session restore failed (server unreachable?)');
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// MONACO EDITOR — VS Code experience
+// ═══════════════════════════════════════════════
+let monacoEditor = null;
+let monacoReady = false;
+let autocompleteTimer = null;
+let autocompleteVisible = false;
+let pendingSuggestion = '';
+
+function initMonaco() {
+  require(['vs/editor/editor.main'], function() {
+    // Register C++ language config (already built-in, just refine)
+    const theme = isDark ? 'vc-dark' : 'vc-light';
+    monaco.editor.defineTheme('vc-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '5a5870', fontStyle: 'italic' },
+        { token: 'keyword', foreground: 'a78bfa', fontStyle: 'bold' },
+        { token: 'string', foreground: '22d3a0' },
+        { token: 'number', foreground: 'fbbf24' },
+        { token: 'type', foreground: 'f472b6' },
+      ],
+      colors: {
+        'editor.background': '#0a0a0f',
+        'editor.foreground': '#f0eeff',
+        'editor.lineHighlightBackground': '#18181f',
+        'editorLineNumber.foreground': '#5a5870',
+        'editorLineNumber.activeForeground': '#9d9ab5',
+        'editor.selectionBackground': '#7c6dfa33',
+        'editorCursor.foreground': '#a78bfa',
+        'editor.inactiveSelectionBackground': '#7c6dfa1a',
+        'editorIndentGuide.background': '#1e1e28',
+        'editorWidget.background': '#111118',
+        'editorSuggestWidget.background': '#111118',
+        'editorSuggestWidget.border': '#2a2a38',
+        'editorSuggestWidget.selectedBackground': '#7c6dfa22',
+      }
+    });
+    monaco.editor.defineTheme('vc-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#f5f5fa',
+        'editor.foreground': '#1a1830',
+        'editor.lineHighlightBackground': '#ededf4',
+        'editorLineNumber.foreground': '#9896b0',
+        'editorCursor.foreground': '#5b4de8',
+      }
+    });
+
+    const tab = getActiveTab();
+    monacoEditor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
+      value: tab ? tab.code : DEFAULT_CODE,
+      language: 'cpp',
+      theme: isDark ? 'vc-dark' : 'vc-light',
+      fontSize: 13,
+      fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",
+      fontLigatures: true,
+      lineHeight: 22,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      tabSize: 4,
+      insertSpaces: true,
+      wordWrap: 'off',
+      renderLineHighlight: 'line',
+      cursorBlinking: 'smooth',
+      cursorSmoothCaretAnimation: 'on',
+      smoothScrolling: true,
+      padding: { top: 12, bottom: 12 },
+      suggest: { showKeywords: true, showSnippets: true },
+      quickSuggestions: { other: true, comments: false, strings: false },
+      acceptSuggestionOnEnter: 'on',
+      formatOnPaste: true,
+      bracketPairColorization: { enabled: true },
+      'semanticHighlighting.enabled': true,
+    });
+
+    monacoReady = true;
+    document.getElementById('monaco-loading').style.display = 'none';
+
+    // Sync Monaco → tab state
+    monacoEditor.onDidChangeModelContent(() => {
+      const tab = getActiveTab();
+      if (tab) {
+        tab.code = monacoEditor.getValue();
+        tab.modified = true;
+        renderTabs();
+      }
+      // AI Autocomplete trigger
+      clearTimeout(autocompleteTimer);
+      autocompleteTimer = setTimeout(() => triggerAiAutocomplete(), 1800);
+    });
+
+    // Ctrl+S save
+    monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveFileToPC());
+    // Ctrl+T new tab
+    monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyT, () => addNewTab());
+    // Tab accepts autocomplete suggestion
+    monacoEditor.addCommand(monaco.KeyCode.Tab, () => {
+      if (autocompleteVisible && pendingSuggestion) {
+        acceptAiSuggestion();
+      } else {
+        monacoEditor.trigger('keyboard', 'tab', {});
+      }
+    });
+
+    console.log('✅ Monaco Editor loaded');
+  });
+}
+
+// Sync tab code into Monaco
+function syncToMonaco(code) {
+  if (!monacoReady || !monacoEditor) return;
+  const model = monacoEditor.getModel();
+  if (model) {
+    // Use edit to preserve undo history
+    monacoEditor.executeEdits('tab-switch', [{
+      range: model.getFullModelRange(),
+      text: code,
+      forceMoveMarkers: true
+    }]);
+    monacoEditor.setScrollPosition({ scrollTop: 0 });
+  }
+}
+
+function getMonacoCode() {
+  if (monacoReady && monacoEditor) return monacoEditor.getValue();
+  return document.getElementById('code-editor').value;
+}
+
+// Update theme for Monaco when toggled
+function applyMonacoTheme() {
+  if (monacoReady) monaco.editor.setTheme(isDark ? 'vc-dark' : 'vc-light');
+}
+
+// ═══════════════════════════════════════════════
+// AI AUTOCOMPLETE — 1.8s after typing
+// ═══════════════════════════════════════════════
+let autocompleteDecoration = [];
+
+async function triggerAiAutocomplete() {
+  const key = getApiKey();
+  if (!key || !monacoReady) return;
+  const code = monacoEditor.getValue();
+  if (!code.trim() || code.length < 10) return;
+
+  const pos = monacoEditor.getPosition();
+  const lineContent = monacoEditor.getModel().getLineContent(pos.lineNumber);
+  if (!lineContent.trim()) return; // Don't suggest on empty lines
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 80,
+        messages: [{
+          role: 'system',
+          content: 'You are a C++ code autocomplete engine. Complete the code after the cursor position. Return ONLY the completion text (no explanation, no backticks, no preamble). Keep it to 1-3 lines max.'
+        }, {
+          role: 'user',
+          content: `Complete this C++ code (cursor is at end):\n${code}`
+        }]
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const suggestion = (data.choices[0]?.message?.content || '').trim()
+      .replace(/^```(?:cpp|c\+\+)?\n?/, '').replace(/\n?```$/, '');
+    if (!suggestion) return;
+
+    pendingSuggestion = suggestion;
+    autocompleteVisible = true;
+
+    // Show ghost text decoration in Monaco
+    const lineCount = monacoEditor.getModel().getLineCount();
+    const lastCol = monacoEditor.getModel().getLineMaxColumn(pos.lineNumber);
+    autocompleteDecoration = monacoEditor.deltaDecorations(autocompleteDecoration, [{
+      range: new monaco.Range(pos.lineNumber, lastCol, pos.lineNumber, lastCol),
+      options: {
+        after: {
+          content: suggestion.split('\n')[0], // Show first line as inline ghost
+          inlineClassName: 'autocomplete-inline-ghost',
+        },
+        className: '',
+      }
+    }]);
+
+    // Show hint
+    showAutocompleteHint(true);
+  } catch(e) {
+    // Silently fail autocomplete
+  }
+}
+
+function acceptAiSuggestion() {
+  if (!pendingSuggestion || !monacoReady) return;
+  const pos = monacoEditor.getPosition();
+  monacoEditor.executeEdits('ai-autocomplete', [{
+    range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
+    text: pendingSuggestion,
+  }]);
+  clearAiSuggestion();
+  showToast('ai', '✦ AI suggestion accepted (Tab)');
+}
+
+function clearAiSuggestion() {
+  pendingSuggestion = '';
+  autocompleteVisible = false;
+  if (monacoReady) autocompleteDecoration = monacoEditor.deltaDecorations(autocompleteDecoration, []);
+  showAutocompleteHint(false);
+}
+
+function showAutocompleteHint(show) {
+  let hint = document.getElementById('autocomplete-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'autocomplete-hint';
+    hint.className = 'autocomplete-hint';
+    hint.textContent = 'Tab ↵ to accept AI suggestion · Esc to dismiss';
+    document.getElementById('monaco-editor-container').appendChild(hint);
+  }
+  hint.classList.toggle('show', show);
+}
+
+// Dismiss on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && autocompleteVisible) {
+    clearAiSuggestion();
+  }
+});
+
+// ═══════════════════════════════════════════════
+// ERROR EXPLANATION — auto after compile fails
+// ═══════════════════════════════════════════════
+async function aiExplainErrors(errors) {
+  const key = getApiKey();
+  if (!key || !errors.length) return;
+  const box = document.getElementById('error-explain-output');
+  if (!box) return;
+  box.innerHTML = '<span style="color:var(--ai)">✦ AI is analyzing errors...</span>';
+  box.style.display = 'block';
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 300,
+        messages: [{
+          role: 'system',
+          content: 'You are a C++ tutor. A student got compiler errors. Explain what went wrong in simple language in 2-3 sentences. Be friendly and specific. No markdown headers.'
+        }, {
+          role: 'user',
+          content: `C++ compiler errors:\n${errors.join('\n')}\n\nExplain what went wrong and how to fix it.`
+        }]
+      })
+    });
+    if (!res.ok) { box.style.display='none'; return; }
+    const data = await res.json();
+    const explanation = data.choices[0]?.message?.content || '';
+    box.innerHTML = `<strong>✦ AI Error Analysis:</strong><br>${explanation.replace(/\n/g,'<br>')}`;
+  } catch(e) { box.style.display='none'; }
+}
+
+// ═══════════════════════════════════════════════
+// URDU TTS — speak in اردو
+// ═══════════════════════════════════════════════
+let urduTtsEnabled = false;
+
+function speakUrdu(text) {
+  if (!ttsSupported) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'ur-PK';
+  utt.rate = 0.95;
+  utt.pitch = 1.0;
+  const voices = window.speechSynthesis.getVoices();
+  const urduVoice = voices.find(v => v.lang === 'ur-PK' || v.lang === 'ur' || v.name.toLowerCase().includes('urdu'));
+  if (urduVoice) utt.voice = urduVoice;
+  window.speechSynthesis.speak(utt);
+}
+
+function speakFeedback(text, isSuccess) {
+  if (urduTtsEnabled) {
+    // Map common responses to Urdu
+    const urduMap = {
+      'Done': 'ہو گیا',
+      'Compiled successfully!': 'کمپائل ہو گیا',
+      'Code inserted': 'کوڈ داخل ہو گیا',
+      'Listening': 'سن رہا ہوں',
+      'Microphone off': 'مائیکروفون بند',
+      'Command not recognized': 'کمانڈ سمجھ نہیں آئی',
+      'AI fixed your code!': 'اے آئی نے کوڈ ٹھیک کر دیا',
+      'Code copied': 'کوڈ کاپی ہو گیا',
+      'Undo': 'واپس ہو گیا',
+    };
+    const urduText = urduMap[text] || text;
+    speakUrdu(urduText);
+  } else {
+    speak(text, false);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CUSTOM VOICE COMMANDS
+// ═══════════════════════════════════════════════
+let customCommands = JSON.parse(localStorage.getItem('vc_custom_cmds') || '[]');
+// Format: [{trigger: "say hello", code: 'cout << "Hello";'}]
+
+function saveCustomCommands() {
+  localStorage.setItem('vc_custom_cmds', JSON.stringify(customCommands));
+}
+
+function matchCustomCommand(input) {
+  for (const cmd of customCommands) {
+    if (cmd.trigger && input.toLowerCase().includes(cmd.trigger.toLowerCase())) {
+      return cmd;
+    }
+  }
+  return null;
+}
+
+function renderCustomCommandsSettings() {
+  return `
+  <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">🎙 Custom Voice Commands</div>
+  <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Say your trigger phrase → inserts your code snippet.</div>
+  <div id="custom-cmds-list">
+    ${customCommands.map((c,i) => `
+      <div class="custom-cmd-row">
+        <input value="${escHtml(c.trigger)}" placeholder="trigger phrase" onchange="customCommands[${i}].trigger=this.value;saveCustomCommands()">
+        <input value="${escHtml(c.code)}" placeholder="code to insert" onchange="customCommands[${i}].code=this.value;saveCustomCommands()">
+        <button class="btn btn-ghost btn-sm" onclick="customCommands.splice(${i},1);saveCustomCommands();toggleSettingsDrawer();setTimeout(toggleSettingsDrawer,50)">✕</button>
+      </div>`).join('')}
+  </div>
+  <button class="btn btn-accent btn-sm" style="width:100%;margin-top:8px" onclick="customCommands.push({trigger:'',code:''});saveCustomCommands();toggleSettingsDrawer();setTimeout(toggleSettingsDrawer,50)">
+    + Add Command
+  </button>`;
+}
+
+// ═══════════════════════════════════════════════
+// AI CHAT HISTORY — save/restore to Supabase
+// ═══════════════════════════════════════════════
+async function saveChatHistoryToCloud() {
+  if (!currentUser) return;
+  const token = authGetToken();
+  if (!token || !aiChatHistory.length) return;
+  try {
+    await fetch(`${API_BASE}/chat/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ history: aiChatHistory }),
+    });
+  } catch(e) { /* best-effort */ }
+}
+
+async function loadChatHistoryFromCloud() {
+  if (!currentUser) return;
+  const token = authGetToken();
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/chat/history`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.history && data.history.length) {
+      aiChatHistory = data.history;
+      showToast('info', `💬 Restored ${aiChatHistory.length} chat messages`);
+    }
+  } catch(e) { /* best-effort */ }
+}
+
+// Auto-save chat every 30s if user is logged in
+setInterval(() => { if(currentUser && aiChatHistory.length) saveChatHistoryToCloud(); }, 30000);
+
+// ═══════════════════════════════════════════════
+// CLOUD SAVE / LOAD (patched to use Monaco)
+// ═══════════════════════════════════════════════
+async function saveFileToCloud() {
+  if (!currentUser) { showToast('warn', 'Sign in to save to cloud'); openAuthModal('signin'); return; }
+  const tab = getActiveTab();
+  tab.code = getMonacoCode();
+  const token = authGetToken();
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/files/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ filename: tab.name, code: tab.code }),
+    });
+    if (res.ok) { tab.modified = false; renderTabs(); showToast('success', `☁ ${tab.name} saved to cloud`); }
+    else showToast('error', 'Cloud save failed');
+  } catch(e) { showToast('error', 'Cannot reach server'); }
+}
+
+async function loadCloudFiles() {
+  const token = authGetToken();
+  if (!token) return [];
+  try {
+    const res = await fetch(`${API_BASE}/files/list`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.files || [];
+  } catch(e) { return []; }
+}
+
+function openCloudFile(id, filename, code) {
+  addNewTab(filename, code);
+  showToast('success', `☁ Opened ${filename}`);
+}
+
+async function deleteCloudFile(id) {
+  const token = authGetToken();
+  if (!token) return;
+  try {
+    await fetch(`${API_BASE}/files/delete/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+    if (currentPanel === 'dashboard') { renderPanel('dashboard'); }
+    showToast('info', 'File deleted');
+  } catch(e) { showToast('error', 'Delete failed'); }
+}
+
+async function shareCode() {
+  const tab = getActiveTab();
+  tab.code = getMonacoCode();
+  const token = authGetToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  try {
+    const res = await fetch(`${API_BASE}/files/share`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: tab.name, code: tab.code }),
+    });
+    if (!res.ok) { showToast('error', 'Share failed'); return null; }
+    const data = await res.json();
+    return data.url;
+  } catch(e) { showToast('error', 'Cannot reach server'); return null; }
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: getActiveTab code uses Monaco
+// ═══════════════════════════════════════════════
+function saveActiveEditorState() {
+  const tab = getActiveTab(); if (!tab) return;
+  tab.code = getMonacoCode();
+  if (monacoReady && monacoEditor) {
+    tab.scrollTop = monacoEditor.getScrollTop();
+    const pos = monacoEditor.getPosition();
+    tab.cursorLine = pos ? pos.lineNumber : 1;
+    tab.cursorCol = pos ? pos.column : 1;
+  }
+}
+
+function loadTabIntoEditor(id) {
+  const tab = tabs.find(t => t.id === id); if (!tab) return;
+  if (monacoReady && monacoEditor) {
+    syncToMonaco(tab.code);
+    if (tab.cursorLine) {
+      monacoEditor.setPosition({ lineNumber: tab.cursorLine, column: tab.cursorCol || 1 });
+    }
+    monacoEditor.focus();
+  } else {
+    const ed = document.getElementById('code-editor');
+    if (ed) { ed.value = tab.code; updateLineNumbers(); }
+  }
+}
+
+// Patch insertCode to use Monaco
+function insertCode(snippet) {
+  const tab = getActiveTab();
+  if (monacoReady && monacoEditor) {
+    tab.undoStack.push(monacoEditor.getValue());
+    const model = monacoEditor.getModel();
+    const pos = monacoEditor.getPosition();
+    // Try to insert before return 0
+    const fullText = monacoEditor.getValue();
+    const returnIdx = fullText.lastIndexOf('\n    return 0;');
+    if (returnIdx !== -1 && snippet.trim() !== 'return 0;') {
+      const newText = fullText.substring(0, returnIdx) + '\n    ' + snippet.trimEnd() + fullText.substring(returnIdx);
+      syncToMonaco(newText);
+    } else {
+      monacoEditor.executeEdits('insert-snippet', [{
+        range: new monaco.Range(model.getLineCount(), model.getLineMaxColumn(model.getLineCount()), model.getLineCount(), model.getLineMaxColumn(model.getLineCount())),
+        text: snippet,
+      }]);
+    }
+    tab.code = monacoEditor.getValue();
+  } else {
+    const ed = document.getElementById('code-editor');
+    const val = ed.value;
+    const ins = val.lastIndexOf('\n    return 0;');
+    if (ins !== -1 && snippet.trim() !== 'return 0;') ed.value = val.substring(0, ins) + '\n    ' + snippet.trimEnd() + val.substring(ins);
+    else ed.value = val + snippet;
+    tab.code = ed.value;
+    updateLineNumbers();
+  }
+  tab.modified = true;
+  renderTabs();
+  showToast('success', 'Code inserted');
+  if (autoCompile) setTimeout(() => compileCode(), 500);
+}
+
+// Patch copyCode
+function copyCode() {
+  saveActiveEditorState();
+  navigator.clipboard.writeText(getMonacoCode()).then(() => showToast('success', 'Code copied')).catch(() => showToast('error', 'Could not copy'));
+}
+
+// Patch toggleTheme to also update Monaco
+const _origToggleTheme = window.toggleTheme;
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle('light-mode', !isDark);
+  const btn = document.getElementById('theme-btn'), btn2 = document.getElementById('theme-btn2');
+  if (btn) btn.textContent = isDark ? '☀ Light' : '☾ Dark';
+  if (btn2) btn2.textContent = isDark ? '☀ Light' : '☾ Dark';
+  applyMonacoTheme();
+  drawIdleWaveform();
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: compileCode to show error explanation
+// ═══════════════════════════════════════════════
+async function compileCode() {
+  saveActiveEditorState();
+  const tab = getActiveTab();
+  const code = getMonacoCode();
+  tab.code = code;
+  const btn = document.getElementById('compile-btn');
+  btn.innerHTML = '<div class="compile-spinner"></div> Compiling...'; btn.disabled = true;
+  setStatus('processing'); addLog('info', `Compiling ${tab.name}...`);
+  switchOutputTab('output', document.querySelector('.output-tab'));
+  lastErrors = [];
+  // Hide previous explanation
+  const explainBox = document.getElementById('error-explain-output');
+  if (explainBox) explainBox.style.display = 'none';
+  const compileStart = Date.now();
+  try {
+    let result;
+    if (selectedApi === 'jdoodle') result = await jdoodleCompile(code);
+    else if (selectedApi === 'paiza') result = await paizaCompile(code);
+    else result = await simulateCompile(code);
+    const elapsed = ((Date.now() - compileStart) / 1000).toFixed(2);
+    outputCount++; document.getElementById('output-badge').textContent = outputCount;
+    if (result.success) {
+      addLog('success', `✓ ${tab.name} compiled in ${elapsed}s`);
+      result.output.split('\n').filter(l => l).forEach(l => addLog('success', l));
+      showToast('success', `✓ Compiled in ${elapsed}s`);
+      tab.modified = false; renderTabs();
+      speakFeedback('Compiled successfully!', true);
+      // Clear Monaco error markers
+      if (monacoReady) monaco.editor.setModelMarkers(monacoEditor.getModel(), 'compiler', []);
+    } else {
+      errorCount++; document.getElementById('error-badge').textContent = errorCount;
+      addLog('error', `✗ Compilation failed (${elapsed}s)`);
+      result.errors.forEach(e => { addLog('error', e); lastErrors.push(e); });
+      showToast('error', 'Compilation error — AI Fix available');
+      switchOutputTab('errors', document.querySelectorAll('.output-tab')[1]);
+      // Auto-explain errors
+      setTimeout(() => aiExplainErrors(lastErrors), 300);
+    }
+  } catch(e) { addLog('error', 'Compiler error: ' + e.message); showToast('error', 'Compiler unreachable'); }
+  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
+  btn.disabled = false; setStatus(isListening ? 'listening' : 'idle');
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: renderSettingsPanel — add Urdu TTS & Custom Commands
+// ═══════════════════════════════════════════════
+function renderSettingsPanel() {
+  return `<div>
+    <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">AI</div>
+    <div class="ai-key-notice">Paste your OpenAI API key to enable AI features.<br><a onclick="window.open('https://platform.openai.com/api-keys')">Get a key →</a></div>
+    <input class="api-key-input" id="openai-api-key" type="password" placeholder="sk-..." oninput="localStorage.setItem('vc_openai_apikey',this.value.trim())">
+    <div class="setting-row" style="margin-top:8px">
+      <div><div class="setting-label">AI mode</div><div class="setting-sub">Use GPT-4o for voice</div></div>
+      <button class="toggle ${aiMode?'on':''}" onclick="aiMode=!aiMode;this.className='toggle '+(aiMode?'on':'');showToast('info','AI mode '+(aiMode?'on':'off'))"></button>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">AI Autocomplete</div><div class="setting-sub">1.8s after typing → Tab to accept</div></div>
+      <button class="toggle ${aiAutocompleteEnabled?'on':''}" id="autocomplete-toggle" onclick="aiAutocompleteEnabled=!aiAutocompleteEnabled;this.className='toggle '+(aiAutocompleteEnabled?'on':'');showToast('info','Autocomplete '+(aiAutocompleteEnabled?'on':'off'))"></button>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">🎙 Voice Input</div>
+    <div class="setting-row">
+      <div><div class="setting-label">Language</div><div class="setting-sub">Recognition locale</div></div>
+      <select class="sel" onchange="setRecognitionLang(this.value)">
+        <option value="en-US" ${recognitionLang==='en-US'?'selected':''}>English (US)</option>
+        <option value="en-GB" ${recognitionLang==='en-GB'?'selected':''}>English (UK)</option>
+        <option value="en-AU" ${recognitionLang==='en-AU'?'selected':''}>English (AU)</option>
+        <option value="ur-PK" ${recognitionLang==='ur-PK'?'selected':''}>Urdu (PK)</option>
+        <option value="ar" ${recognitionLang==='ar'?'selected':''}>Arabic</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Push-to-Talk</div><div class="setting-sub">Hold <kbd style="font-family:var(--mono);background:var(--bg4);padding:1px 4px;border-radius:3px;font-size:9px">Space</kbd> to speak</div></div>
+      <button class="toggle ${pushToTalk?'on':''}" onclick="pushToTalk=!pushToTalk;this.className='toggle '+(pushToTalk?'on':'');if(isListening)document.getElementById('mic-state').textContent=pushToTalk?'Hold Space to speak':'Listening...';showToast('info','Push-to-Talk '+(pushToTalk?'on':'off'))"></button>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Noise Gate</div><div class="setting-sub">Filter background noise</div></div>
+      <select class="sel" onchange="noiseGateLevel=parseFloat(this.value);showToast('info','Noise gate: '+this.options[this.selectedIndex].text)">
+        <option value="0" ${noiseGateLevel===0?'selected':''}>Off</option>
+        <option value="0.01" ${noiseGateLevel===0.01?'selected':''}>Low</option>
+        <option value="0.02" ${noiseGateLevel===0.02?'selected':''}>Medium</option>
+        <option value="0.05" ${noiseGateLevel===0.05?'selected':''}>High</option>
+      </select>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">🔊 Voice Feedback (TTS)</div>
+    <div class="setting-row">
+      <div><div class="setting-label">Speak confirmations</div><div class="setting-sub">Audible command feedback</div></div>
+      <button class="toggle ${ttsEnabled?'on':''}" onclick="ttsEnabled=!ttsEnabled;this.className='toggle '+(ttsEnabled?'on':'');if(ttsEnabled)speak('Voice feedback enabled');else window.speechSynthesis.cancel()"></button>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">🗣 Urdu Voice (اردو) <span class="urdu-badge">پاکستان</span></div>
+        <div class="setting-sub">Responses in Urdu TTS</div>
+      </div>
+      <button class="toggle ${urduTtsEnabled?'on':''}" id="urdu-toggle" onclick="urduTtsEnabled=!urduTtsEnabled;this.className='toggle '+(urduTtsEnabled?'on':'');showToast('info',urduTtsEnabled?'اردو آواز فعال':'Urdu voice off');if(urduTtsEnabled)speakUrdu('سلام، وائس کوڈر میں خوش آمدید')"></button>
+    </div>
+    <div class="setting-row" style="${ttsSupported?'':'opacity:0.4;pointer-events:none'}">
+      <div><div class="setting-label">TTS status</div><div class="setting-sub">${ttsSupported?'Available in this browser':'Not supported'}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="speak('Voice feedback test. Hello from VoiceCoder!',true)">Test</button>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">Compiler</div>
+    <div class="setting-row">
+      <div class="setting-label">Backend</div>
+      <select class="sel" onchange="selectedApi=this.value">
+        <option value="simulate" ${selectedApi==='simulate'?'selected':''}>Simulator</option>
+        <option value="paiza" ${selectedApi==='paiza'?'selected':''}>Paiza.io</option>
+        <option value="jdoodle" ${selectedApi==='jdoodle'?'selected':''}>JDoodle</option>
+      </select>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">Editor</div>
+    <div class="setting-row">
+      <div><div class="setting-label">Echo commands</div><div class="setting-sub">Show in logs</div></div>
+      <button class="toggle ${echoCommands?'on':''}" onclick="echoCommands=!echoCommands;this.className='toggle '+(echoCommands?'on':'')"></button>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Auto-compile</div><div class="setting-sub">Run after insert</div></div>
+      <button class="toggle ${autoCompile?'on':''}" onclick="autoCompile=!autoCompile;this.className='toggle '+(autoCompile?'on':'')"></button>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Theme</div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTheme()" id="theme-btn2">${isDark?'☀ Light':'☾ Dark'}</button>
+    </div>
+    ${renderCustomCommandsSettings()}
+    <div style="font-size:10px;color:var(--text3);margin-top:14px;font-family:var(--mono);line-height:1.8;background:var(--bg3);border-radius:6px;padding:8px 10px">
+      ⌨ <b>Ctrl+M</b> — toggle mic<br>
+      ⌨ <b>Space</b> (hold) — push-to-talk<br>
+      ⌨ <b>Tab</b> — accept AI autocomplete<br>
+      ⌨ <b>Ctrl+S</b> — save file<br>
+      🗣 Say punctuation: "period", "comma", "open brace"…<br>
+      🔁 Recognition auto-restarts with backoff
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: renderDashboardPanel — full upgrade
+// ═══════════════════════════════════════════════
+function renderDashboardPanel() {
+  const lines = getMonacoCode().split('\n').length;
+  return `<div>
+    <div class="dashboard-card">
+      <h4>👤 Account</h4>
+      ${currentUser ? `<div style="font-size:12px;color:var(--text2)">Signed in as <b>${currentUser.name}</b></div><div style="font-size:11px;color:var(--text3);margin-top:2px">${currentUser.email}</div>` : `<div style="font-size:12px;color:var(--text3)">Not signed in. <a style="color:var(--accent2);cursor:pointer" onclick="openAuthModal('signin')">Sign in</a></div>`}
+    </div>
+    <div class="dashboard-card">
+      <h4>☁ Cloud Files</h4>
+      <div id="cloud-files-list"><div style="color:var(--text3);font-size:11px">Loading...</div></div>
+      <button class="btn btn-cloud btn-sm" style="width:100%;margin-top:8px" onclick="saveFileToCloud()">☁ Save Current File</button>
+    </div>
+    <div class="dashboard-card">
+      <h4>🔗 Share Code</h4>
+      <button class="btn btn-accent btn-sm" style="width:100%" onclick="shareAndShowLink()">Generate Share Link</button>
+      <div id="share-link-box" style="display:none"></div>
+    </div>
+    <div class="dashboard-card">
+      <h4>📊 Session Stats</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
+        <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--accent2)">${commandHistory.length}</div><div style="color:var(--text3)">Commands</div></div>
+        <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--green)">${outputCount}</div><div style="color:var(--text3)">Compiles</div></div>
+        <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--ai)">${aiChatHistory.length}</div><div style="color:var(--text3)">AI Chats</div></div>
+        <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--amber)">${lines}</div><div style="color:var(--text3)">Lines</div></div>
+      </div>
+    </div>
+    <div class="dashboard-card">
+      <h4>💬 AI Chat History</h4>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${aiChatHistory.length} messages ${currentUser?'— auto-synced to Supabase':''}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="saveChatHistoryToCloud();showToast('success','Chat saved to cloud')">☁ Save Chat</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="aiChatHistory=[];switchPanel('dashboard',null);showToast('info','Chat cleared')">🗑 Clear</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: output pane — add error explain box
+// ═══════════════════════════════════════════════
+function addErrorExplainBox() {
+  const pane = document.querySelector('.output-pane');
+  if (!pane || document.getElementById('error-explain-output')) return;
+  const box = document.createElement('div');
+  box.id = 'error-explain-output';
+  box.className = 'error-explain-box';
+  box.style.display = 'none';
+  box.style.margin = '0 12px 8px';
+  pane.appendChild(box);
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: processVoiceCommand — check custom commands first
+// ═══════════════════════════════════════════════
+const _origProcessVoiceCommand = window.processVoiceCommand;
+function processVoiceCommand(raw, confidence) {
+  // Check custom commands first
+  const customMatch = matchCustomCommand(raw);
+  if (customMatch) {
+    insertCode(customMatch.code);
+    addCmdToHistory(raw, true, confidence, false);
+    speakFeedback('Done', true);
+    return;
+  }
+  if (aiMode) {
+    const lower = raw.toLowerCase().trim();
+    const aiTriggers = {
+      explain: ['explain','explain code','explain this','what does this do'],
+      review:  ['review','review code','review my code','code review'],
+      fix:     ['fix','fix error','fix errors','fix the error','fix my code'],
+      complete:['complete','complete code','complete my code','finish my code','auto complete'],
+    };
+    for (const [action, triggers] of Object.entries(aiTriggers)) {
+      if (triggers.some(t => lower.includes(t))) {
+        if (action==='explain') aiExplainCode();
+        else if (action==='review')  aiReviewCode();
+        else if (action==='fix')     aiFixErrors();
+        else if (action==='complete')aiCompleteCode();
+        addCmdToHistory(raw, true, confidence, true);
+        return;
+      }
+    }
+    aiProcessVoiceCommand(raw, confidence);
+    return;
+  }
+  processFallbackCommand(raw, confidence);
+}
+
+// ═══════════════════════════════════════════════
+// PATCH: applyLoggedIn — load chat history from cloud
+// ═══════════════════════════════════════════════
+const _baseApplyLoggedIn = applyLoggedIn;
+function applyLoggedIn() {
+  var a=document.getElementById('auth-area');
+  var u=document.getElementById('user-area');
+  var lb=document.getElementById('landing-signup-btn');
+  if(a){a.setAttribute('style','display:none !important');}
+  if(u){u.setAttribute('style','display:block !important;position:relative');}
+  if(lb){lb.style.display='none';}
+  var n=document.getElementById('user-name-label');
+  var e=document.getElementById('user-email-item');
+  if(n) n.textContent=currentUser.name||currentUser.email;
+  if(e) e.textContent=currentUser.email;
+  // Load cloud chat history after login
+  setTimeout(() => loadChatHistoryFromCloud(), 800);
+}
+
+// State
+let aiAutocompleteEnabled = true;
+
+// Patch triggerAiAutocomplete to respect toggle
+const _origTriggerAiAutocomplete = triggerAiAutocomplete;
+async function triggerAiAutocomplete() {
+  if (!aiAutocompleteEnabled) return;
+  await _origTriggerAiAutocomplete();
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded', () => {
+  tryRestoreSession();
+  if (!speechSupported) { showBanner('warn', '⚠ Speech recognition not supported. Use Chrome/Edge.'); document.getElementById('perm-btn').classList.add('show'); }
+  else { navigator.permissions?.query({name:'microphone'}).then(p => { micPermission=p.state; if(p.state==='denied'){showBanner('error','🚫 Mic denied. Allow in browser settings.');document.getElementById('perm-btn').classList.add('show');} }); }
+  activeTabId = tabs[0].id;
+
+  // Init Monaco after page loads
+  setTimeout(() => initMonaco(), 100);
+
+  // Add error explain box to output pane
+  setTimeout(() => addErrorExplainBox(), 200);
+
+  // Add inline ghost text CSS for Monaco
+  const style = document.createElement('style');
+  style.textContent = `.autocomplete-inline-ghost { opacity: 0.4; color: var(--accent3); font-style: italic; }`;
+  document.head.appendChild(style);
+});
+</script>
+</body>
+</html>
+
